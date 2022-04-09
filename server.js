@@ -18,16 +18,158 @@ const io = socketIo(server, {
     }
 });
 
-// HERE: all relevant JS classes
-class Equipment {
-    constructor(name) {
-        this.name = name;
+/*
+
+    Quick-construction objects for the Constructor Classes to use... new Item(blueprints.battleaxe, )
+
+*/
+const blueprints = {
+    rags: {
+        type: 'equipment', build: 'clothes', name: 'Tattered Rags', description: `These clothes look like they've been worn through an apocalypse.`, 
+        slot: 'body', icon: {type: 'x'}, equipStats: {def: {flat: 2, amp: {vitality: 0.5}}}
+    },
+    fancyclothes: {
+        type: 'equipment', build: 'clothes', name: 'Fancy Clothes', description: `These clothes are quite fashionable, bright, and well-tailored.`, 
+        slot: 'body', icon: {type: 'x'}, equipStats: {def: {flat: 10, amp: {vitality: 1.5, intelligence: 1.5}}, res: {flat: 10, amp: {wisdom: 3}}}        
+    },
+    leathercap: {
+        type: 'equipment', build: 'clothes', name: 'Leather Cap', description: `A simple leather cap for your noggin.`, 
+        slot: 'head', icon: {type: 'x'}, equipStats: {def: {flat: 1, amp: {vitality: 0.5}}}
     }
+};
+
+// HERE: all relevant JS classes
+/*
+
+    TIME TO MAKE ITEMS EXIST! Great!
+    type: equipment, consumable, ?
+    build: sword, potion, axe, staff, spear, helm, armor, robes, etc.
+    name: equip-level/top-level name
+    description: the long words to tell more!
+    slot: hand, bothHands, head, body, accessory, trinket (if applicable... OR, we can have any item be equippable in the hands, for delicious FLAVOR)
+    icon: peekture
+
+    BRAINSTORM
+    interact: what happens when you attempt to interact with it, possibly including checks involved?
+    construction: what it's made of
+    equipStats: ... a -must- for equipment, so the question becomes what format?
+    actionMods: separate checks for adding/adjusting action/ability/spell/etc. mods such as healing, destruction (magic), or whatever
+        - that's a bit more nuanced as for what kind of parameters we want to allow or consider, so... for-later
+    quality: some measurement of the workmanship of the thing
+        - just a single number?... 0 - 100? 
+    upgrades: something to track the total amount, typing, and effects of upgrades to the item to help calculate its effects/stats/etc.
+        - definitely an object, including a quality or total amount that is used to calculate the difficulty of further upgrades
+
+    SPECIFIC BRAINSTORM
+    equipStats: {
+        atk: {
+            flat: 10,
+            amp: {
+                strength: 1
+            }
+        },
+    }
+
+    CONSTRUCTOR(blueprint, ___?)
+    .. what else?
+    - level, maybe
+    - extra mods
+    - ?
+
+*/
+class Item {
+    constructor(blueprint) {
+        this.type = blueprint.type;
+        this.build = blueprint.build;
+        this.name = blueprint.name;
+        this.description = blueprint.description;
+        this.slot = blueprint.slot;
+        this.icon = blueprint.icon;
+        this.equipStats = blueprint.equipStats;
+        this.id = generateRandomID();
+    }
+
+    build () {
+        // a handy-dandy method that's intended to use the level and any upgrade data to build or re-build this Item!
+        // ... oooor, alternatively, we could have just a global function that does this, too; we'll consider the pros/cons
+    }
+}
+
+function equip(agent, ...items) {
+    // going to try using Spread Magic to equip all the way from ONE to INFINITY items!
+    // agent is meant to be a passed object reference
+    // NOTE: this will NOT work for any hand-based item, nor will it work for any theoretical future accessory2 or trinket2 slots that may arise
+
+    // just realized that hands are tricky, because currently hand-agnostic equipping means without knowing WHICH hand we're aiming for, we don't know where to put it?
+    // TWO SOLUTIONS: hard-code rightHand & leftHand, or separate equipOne function for target-specific
+    // ok, let's roll with #2, I like hand-agnostic aesthetic for this
+
+    items.forEach(itemObject => {
+        // check the agent's intended slot; if something is 'in the way,' unequip it into inventory first
+        if (agent.equipment[itemObject.slot] != null) {
+            // something is equipment there! remove it!
+            unequip(agent, itemObject.slot)
+            agent.inventory.push(agent.equipment[itemObject.slot]);
+            agent.equipment[itemObject.slot] = null;
+        }
+        agent.equipment[itemObject.slot] = itemObject;
+        // HERE: apply them stats! ... so much object layering, holy cow. gonna have to test to see if this all works out ok with some new Players. Rags, GO!
+        Object.keys(itemObject.equipStats).forEach(statToBoost => {
+            agent.stats[statToBoost] = agent.stats[statToBoost] + itemObject.equipStats[statToBoost].flat;
+            Object.keys(itemObject.equipStats[statToBoost].amp).forEach(statToAmpWith => {
+                agent.stats[statToBoost] = agent.stats[statToBoost] + Math.floor(agent.stats[statToAmpWith] * itemObject.equipStats[statToBoost].amp[statToAmpWith]);
+            });
+        });
+
+    });
+
+}
+
+function equipOne(agent, item, slot) {
+    // items need ids. they just do. :P
+    if (agent.equipment[slot] != null) {
+        // something is equipment there! remove it! ... o snap we can't just do it this way, we need to UNEQUIP it
+        unequip(agent, slot);
+    }
+    if (item.name === null) return agent.equipment[slot] = null;
+    agent.equipment[slot] = item;
+    // important: filter this item out of their inventory :P
+    agent.inventory = agent.inventory.filter(invItem => invItem.id !== item.id);
+    // HERE: apply them stats! ... so much object layering, holy cow. gonna have to test to see if this all works out ok with some new Players. Rags, GO!
+    Object.keys(item.equipStats).forEach(statToBoost => {
+        agent.stats[statToBoost] = agent.stats[statToBoost] + item.equipStats[statToBoost].flat;
+        Object.keys(item.equipStats[statToBoost].amp).forEach(statToAmpWith => {
+            agent.stats[statToBoost] = agent.stats[statToBoost] + Math.floor(agent.stats[statToAmpWith] * item.equipStats[statToBoost].amp[statToAmpWith]);
+        });
+    });
+}
+
+function unequip(agent, slot) {
+    // slip off a piece of equipment into inventory, adjusting stats properly in the meantime
+    let item = agent.equipment[slot];
+
+    Object.keys(item.equipStats).forEach(statToBoost => {
+        agent.stats[statToBoost] = agent.stats[statToBoost] - item.equipStats[statToBoost].flat;
+        Object.keys(item.equipStats[statToBoost].amp).forEach(statToAmpWith => {
+            agent.stats[statToBoost] = agent.stats[statToBoost] - Math.floor(agent.stats[statToAmpWith] * item.equipStats[statToBoost].amp[statToAmpWith]);
+        });
+    });
+
+    agent.inventory.push(agent.equipment[slot]);
+    agent.equipment[slot] = null;
 }
 
 class Achievement {}
 
 class Chatventure {}
+
+// maaaay not need NPC below, if we define a typing on this Class that covers that effectively
+// note that mobs should be stealable and have LOOT, as well
+class Mob {}
+
+class NPC {}
+
+
 
 // for now, HAX for Zenithica
 // note to self: make sure to initialize ALL variables, such as history, when doing actual Zenithica setup
@@ -72,22 +214,31 @@ CLASS: {
         classLevels: {warrior: 3, rogue: 5},
         achievements: [],
         stats: {}, // may or may not require stats in actuality
-
     },
-    levelingStatBonuses: [{}, {}], // handy array for levels from 0 onward!
+    levelBonuses: [{}, {}], // handy array for levels from 0 onward!
     abilities: {
-        // OR we just define the abilities with requirements and cost here, and once learned, we reference allAbilities instead for details
-        // yep, let's do that, and sort any iconography of ability boxes out later
+        // abilities with requirements and cost here, and once learned, we reference allAbilities instead for details
         abilityName: {requirements: {}, cost: {}}
     },
     prefixes: {...do we want to call them that? :P}
 }
 
+
+... separate thought, but if abilities are learned OUTSIDE of a class, how do we level 'em up? :P
+    - maybe just have an ability screen for that, and gaining exp automatically levels up the class, then you can 'spend' gained exp on abilities
+    - the other idea is to have to 'purchase' stuff in the class to level it up
+    - and can add other requirements down the road
+    - ok, I waffled in my thinking a bit, but I think ultimately having to go TRAIN with someone/at somewhere to push class exp is neat
+    - cost can be exp, wealth, other??
+    - in this model, learning to Craft is through specific classes, rather than having it be a "free find-it-yourself skills" thing
+    - ok, everything-is-abilities, we're disregarding skills for PCs, and maybe for NPCs as well
+        - passives and perks is where it's at! and level! and stats! :P
+
 */
 const allClasses = {
     'rogue': {},
     'warrior': {},
-    'healer': {},
+    'sympath': {},
     'mage': {},
     'fool': {}
 };
@@ -280,31 +431,33 @@ io.on('connection', (socket) => {
 
     socket.join('Zenithica');
 
-
-
     socket.on('login', loginData => {     
         // console.log(`Received loginData: `, loginData);
 
-        if (loginData.token == null) {
+        if (loginData.token == null && loginData.name == null) {
             let initialLocationData = {
                 name: 'Zenithica',
+                nickname: 'Zenithica',
                 description: allSouls['Zenithica'].township.townMap.description,
-                history: allSouls['Zenithica'].township.history
+                history: allSouls['Zenithica'].township.history.slice(-150),
+                structs: allSouls['Zenithica'].township.townMap.structs
             };
             return socket.emit('location_update', initialLocationData);
         }
 
         if (loginData.token != null) {
             let decodedPlayerName = jwt.verify(loginData.token, process.env.SECRET).name;
-            console.log(`${decodedPlayerName} has logged in via token.`);
+            // console.log(`${decodedPlayerName} has logged in via token.`);
             const newToken = craftAccessToken(decodedPlayerName);
             socket.emit('reset_token', newToken);
             thisPlayer = allSouls[decodedPlayerName];
             thisPlayer.following.forEach(soulName => socket.join(soulName));
             let initialLocationData = {
                 name: thisPlayer.playStack.gps,
+                nickname: allSouls[thisPlayer.playStack.gps].township.nickname,
                 description: allSouls[thisPlayer.playStack.gps].township.townMap.description,
-                history: allSouls[thisPlayer.playStack.gps].township.history
+                history: allSouls[thisPlayer.playStack.gps].township.history.slice(-150),
+                structs: allSouls[thisPlayer.playStack.gps].township.townMap.structs
             };
             socket.emit('player_update', sanitizePlayerObj(thisPlayer));
             return socket.emit('location_update', initialLocationData);      
@@ -314,15 +467,17 @@ io.on('connection', (socket) => {
         if (loginData.name != null) {
             let testHash = createHash(loginData.password, allSouls[loginData.name].salt);
             if (testHash === allSouls[loginData.name].hash) {
-                console.log(`${loginData.name} has logged in via name and password.`);
+                // console.log(`${loginData.name} has logged in via name and password.`);
                 const newToken = craftAccessToken(loginData.name);
                 socket.emit('reset_token', newToken);
                 thisPlayer = allSouls[loginData.name];
                 thisPlayer.following.forEach(soulName => socket.join(soulName));
                 let initialLocationData = {
                     name: thisPlayer.playStack.gps,
+                    nickname: allSouls[thisPlayer.playStack.gps].township.nickname,
                     description: allSouls[thisPlayer.playStack.gps].township.townMap.description,
-                    history: allSouls[thisPlayer.playStack.gps].township.history
+                    history: allSouls[thisPlayer.playStack.gps].township.history.slice(-150),
+                    structs: allSouls[thisPlayer.playStack.gps].township.townMap.structs
                 };
                 socket.emit('player_update', sanitizePlayerObj(thisPlayer));
                 return socket.emit('location_update', initialLocationData); 
@@ -495,7 +650,7 @@ io.on('connection', (socket) => {
         brandNewPlayer.token = craftAccessToken(brandNewPlayer.name);
 
         brandNewPlayer.level = 0;
-        brandNewPlayer.exp = {};
+        brandNewPlayer.exp = {}; // I'm sure there's a reason this is an object and not a number :P
 
         brandNewPlayer.chatventureID = undefined;
 
@@ -557,24 +712,6 @@ io.on('connection', (socket) => {
         };
         brandNewPlayer.township = {...brandNewTownship};
 
-        // HERE: init inventory, equipment, exp, history, level, equippedAbilities, memories
-        // it'd be useful to have an equip(target, item) fxn so we can just roll with that going forward
-        // for now we'll start 'empty' but for future creations throwing some fun nonsense in here would be amusing
-        brandNewPlayer.inventory = [];
-        brandNewPlayer.equipment = {
-            rightHand: undefined,
-            leftHand: undefined,
-            head: undefined,
-            body: undefined,
-            accessory: undefined,
-            trinket: undefined
-        };
-        // oh right, MUNNY... we'll go with just a number and 'carte blanche' currency for now
-        brandNewPlayer.wallet = 0;
-        
-        // HERE: init flux? probably an object with {current: 0, max: 99, lastTick: Date()}, and some mechanism of calculating restoration (every 5 min seems fine :P)
-        brandNewPlayer.flux = {current: 30, max: 30, lastTick: new Date()};
-
         // HERE: init their 'derived' stats at base... hp, maxhp, mp, maxmp, atk, def, mag, res, etc. from core stats
         // consider any relevant abilities
         // also consider setting up a calcStats() type fxn to handle the lifting in the future (e.g. equipment changes, status effects, abilities, etc.)
@@ -586,12 +723,41 @@ io.on('connection', (socket) => {
         brandNewPlayer.stats.def = 10;  
         brandNewPlayer.stats.mag = 10;  
         brandNewPlayer.stats.res = 10;
-        brandNewPlayer.stats.spd = 10;
+        brandNewPlayer.stats.spd = 10;        
+
+        // HERE: init inventory, equipment, exp, history, level, equippedAbilities, memories
+        // it'd be useful to have an equip(target, item) fxn so we can just roll with that going forward
+        // for now we'll start 'empty' but for future creations throwing some fun nonsense in here would be amusing
+        brandNewPlayer.inventory = [new Item(blueprints.fancyclothes), new Item(blueprints.leathercap)];
+        brandNewPlayer.equipment = {
+            rightHand: null,
+            leftHand: null,
+            head: null,
+            body: null,
+            accessory: null,
+            trinket: null
+        };
+
+//!MHR
+        equip(brandNewPlayer, new Item(blueprints.rags));
+
+        // oh right, MUNNY... we'll go with just a number and 'carte blanche' currency for now
+        brandNewPlayer.wallet = 0;
+        
+        // HERE: init flux? probably an object with {current: 0, max: 99, lastTick: Date()}, and some mechanism of calculating restoration (every 5 min seems fine :P)
+        brandNewPlayer.flux = {current: 30, max: 30, lastTick: new Date()};
+
+
 
         // do we initialize different possible effects? ... think about how best to apply these for future considerations
         // anything from status ailments to breaks and buffs, rots and regens, here we are!
         brandNewPlayer.effects = {
             
+        };
+
+        // just a little catch-all variable :P
+        brandNewPlayer.special = {
+
         };
 
         brandNewPlayer.following = ['Zenithica', brandNewPlayer.name];
@@ -607,10 +773,17 @@ io.on('connection', (socket) => {
         };
 
         // -ideally-, we init all sorts of expected values/actions here so we don't have to later :P
+        /*
+        
+            BRAINSTORM:
+            battlesFought, battlesLost, battlesWon, spellsCast, abilitiesUsed,
+        
+        */
         brandNewPlayer.history = {
             achievements: {}
         };
 
+        // the power of crystalline memory stores objects, NPC's, maybe even townships in perpetuity under the right conditions
         brandNewPlayer.memories = {};
 
         console.log(`Hi! Here's the current working model for brandNewPlayer: `, brandNewPlayer);
@@ -702,22 +875,35 @@ io.on('connection', (socket) => {
 
     });
 
+    socket.on('equip_item', equipRequestObj => {
+        // equipRequestObj = {slot: equipmentSlot, item: itemToEquip}
+        // if unequipping, item = {name: null}
+        const { item, slot } = equipRequestObj;
+
+        equipOne(thisPlayer, item, slot);
+
+        // full player update changes overlay, which isn't ideal...
+        // ideally, we want just an equipment_update, leaving everything else the same
+        socket.emit('equipment_update', {equipment: thisPlayer.equipment, inventory: thisPlayer.inventory, stats: thisPlayer.stats});
+    });
+
     socket.on('request_township_visit', townReqObj => {
         const { name } = townReqObj;
-        console.log(`How lovely! Someone wants to visit `, name);
+        // console.log(`How lovely! Someone wants to visit `, name);
         thisPlayer.playStack.gps = name;
     
         let locationData = {
             name: name,
+            nickname: allSouls[name].township.nickname,
             description: allSouls[name].township.townMap.description,
-            history: allSouls[name].township.history
+            history: allSouls[name].township.history.slice(-150),
+            structs: allSouls[thisPlayer.playStack.gps].township.townMap.structs
         };
         socket.join(name);
         return socket.emit('location_update', locationData);
     })
 
     socket.on('chat_action', chatMessageData => {
-// !MHR
         /*
             const newChatAction = {
             echo: chatMessage,
@@ -772,12 +958,16 @@ io.on('connection', (socket) => {
     });
 
     socket.on('logout', () => {
+        if (thisPlayer == null) return;
         thisPlayer.following.forEach(soulID => socket.leave(soulID));
         socket.join('Zenithica');
         thisPlayer = undefined;
         let initialLocationData = {
+            name: 'Zenithica',
+            nickname: 'Zenithica',
             description: allSouls['Zenithica'].township.townMap.description,
-            history: allSouls['Zenithica'].township.history
+            history: allSouls['Zenithica'].township.history.slice(-150),
+            structs: allSouls['Zenithica'].township.townMap.structs
         };
         socket.emit('location_update', initialLocationData);        
     });
@@ -862,6 +1052,7 @@ GameState.findOne({ dateKey: todaysDateKey })
                                         townMap: {
                                             description: `Husky husks husk around some crystals. Spooooky! Fooky?`,
                                         },
+                                        nickname: '',
                                         history: []                                        
                                     }
                                 }
@@ -908,6 +1099,8 @@ function loadGame(gameObject) {
     allChatventures = gameObject.allChatventures;
     allSecrets = gameObject.allSecrets;
 
+    updateGame(allSouls, allChatventures, allSecrets);
+
     gameSaveTimeout = setTimeout(() => saveGameState(), standardSaveInterval);
 
     // wake => tick?
@@ -920,4 +1113,9 @@ function loadGame(gameObject) {
         }, rando(30000, 300000));
     }
     allSouls.Zenithica.township.wake();
+}
+
+function updateGame(allSouls, allChatventures, allSecrets) {
+    // haxxy game update engine :P
+    if (allSouls.Zenithica.township.nickname == null) allSouls.Zenithica.township.nickname = 'Zenithica';
 }
