@@ -20,10 +20,11 @@ const io = socketIo(server, {
 
 /*
 
-    Quick-construction objects for the Constructor Classes to use... new Item(blueprints.battleaxe, )
+    Quick-construction objects for the Constructor Classes to use... new Item(itemBlueprints.battleaxe, )
+    ... these will get outdated pretty quickly as we go, so adjust them as we approach Live to be more inclusive of all Item class concepts
 
 */
-const blueprints = {
+const itemBlueprints = {
     rags: {
         type: 'equipment', build: 'clothes', name: 'Tattered Rags', description: `These clothes look like they've been worn through an apocalypse.`, 
         slot: 'body', icon: {type: 'x'}, equipStats: {def: {flat: 2, amp: {vitality: 0.5}}}
@@ -44,6 +45,7 @@ const blueprints = {
     TIME TO MAKE ITEMS EXIST! Great!
     type: equipment, consumable, ?
     build: sword, potion, axe, staff, spear, helm, armor, robes, etc.
+    specbuild: just a more specific class of the build, such as katana, scimitar, battleaxe, greatsword, etc.
     name: equip-level/top-level name
     description: the long words to tell more!
     slot: hand, bothHands, head, body, accessory, trinket (if applicable... OR, we can have any item be equippable in the hands, for delicious FLAVOR)
@@ -59,6 +61,7 @@ const blueprints = {
         - just a single number?... 0 - 100? 
     upgrades: something to track the total amount, typing, and effects of upgrades to the item to help calculate its effects/stats/etc.
         - definitely an object, including a quality or total amount that is used to calculate the difficulty of further upgrades
+    value: derived from the quality, construction, upgrades, etc.
 
     SPECIFIC BRAINSTORM
     equipStats: {
@@ -74,13 +77,14 @@ const blueprints = {
     .. what else?
     - level, maybe
     - extra mods
-    - ?
+
 
 */
 class Item {
     constructor(blueprint) {
         this.type = blueprint.type;
         this.build = blueprint.build;
+        this.specbuild = blueprint.specbuild || `nonsense`;
         this.name = blueprint.name;
         this.description = blueprint.description;
         this.slot = blueprint.slot;
@@ -159,17 +163,514 @@ function unequip(agent, slot) {
     agent.equipment[slot] = null;
 }
 
+function pickOne(optionArray) {
+    return optionArray[rando(0, optionArray.length - 1)];
+}
+
 class Achievement {}
 
-class Chatventure {}
+/*
+!MHR
+CHATVENTURE BLUEPRINT TIME!
+Defining a chatventure, redux.
 
-// maaaay not need NPC below, if we define a typing on this Class that covers that effectively
+Chatventures need to have the capacity to serve as both 'choose-your-own-adventure' modes with or without time limits,
+    as well as 'oh whoa live fire text-based game' mode
+
+Let's try our first CHATVENTURE as perimeter patrol, where AI-less Husks roam just to be battered into oblivion for loot and exp :P
+... then we can expand the patrol to be more nuanced, taking into consideration specific local factions and mobs in surrounding areas to various degrees
+    - and, ideally, their current aggression level and interest in the township itself! ... having some factions be 'up to something' with some regularity would be cool
+    - that would lead to 'productive patrols' and the need/desire to manually patrol periodically (or allocate resources to having the township attempt to handle it)
+
+    so these can be created through STRUCTS, as we know, but also through events, items, whatever else have you
+    - for now, we know that the PATROL function is called through the perimeter struct, taking the initiating player as a param
+    - this will allow all the 'contextual variables' to be factored in and for that player to be 'inserted' into the chatventure on all fronts
+
+The main job of the blueprints/class below is just to create an instance of a chatventure with all the pieces necessary to 'run' it
+    - currently thinking of it like a MUD-room with choose-your-own-adventure bits to it
+
+So any given time, the chatventure should have 'intermittently running relevant occurrences/events' to see/potentially respond to
+    - some flavor stuff, just giving atmosphere
+    - some relevant stuff that opens up additional chatventureChoices
+
+OH, chatventures can have 'speed settings' so the 'owner' can modify everyone's SPD with a 'chatventureSpeedSetting' modifier to slow down (or maybe even speed up) battles
+
+Anyway, we also want the ability to RAILROAD some chatventures for 'story events,' allowing the player to adventure through options trees and have these choices matter
+    - procedurally generating interesting chatventure trees is definitely an entire endeavor unto itself
+
+Defining chatventure variables:
+    chatventure: {
+        id: 'uniqueString', // for everyone to be on the same 'page,' so to speak
+        type: 'patrol', // referencing the proper blueprint for calling specific functionalities, potentially
+        creator: playerName, // just a string so we can reference them for whatever
+        players: {}, // of format 'playerNameKey': playerRef
+        factions: {friendly: {}, foely: {}}, // maaay not need this one?...
+        mobs: {}, // for any 'live' NPCs, may include hostile potentially hostile NPCs, haven't decided yet
+        participantLimit: 100, // at what point does it become a fire hazard? :P ... sets limit on how many pcs and npcs can hop into the chatventure
+        joinRules: {...}, // circumstances under which a chatventure can be joined; it's general joinability :P
+        visibilityRules: {...}, // laying the groundwork for being able to 'watch' chatventures, or see them in order to go interact with them... LOCATE, SWMIRROR concepts
+        events: {}, // key is creator/originator/initialtarget name for any given event (including battle), with type and seedData, which is to be used to 'reconstruct' unfinished events if they need to be rebooted
+        mode: '', // thinking this is to help the client parse the chatventure data for display purposes, showing/hiding; player mode can differ from chatventure mode?
+        options: [], // what the player(s) currently can do; objects with echo, whoCanChoose (such as END CHATVENTURE being creator-only)
+        staging: {}, // who, what, where, when, how ... essentially, locationData writ smaller?
+        progress: [], // history of staging? maybe choices/outcomes?
+        history: [], // where the chats and such go
+    }
+
+    SO! playStack.mode = 'chill'; can change to playStack.mode = 'trade' or 'patrol' for example, then playStack.doing = the EVENT they're tied to
+        - some events get 'shared,' or can be shared, such as a battle; others are independent, such as NPC chatting 
+        - chatventure.events have type, seedData, and history for sub-chat (sub-sub-chat, really) fxnality
+
+    WHAT ELSE?
+    - each chatventure is a ROOM. let's establish that now, so multi-room stuff is for separate chatventures, done for now
+    - so maybe e.g. for patrols, the perimeter (related to township size?) can support X number of separate chatventures representing different 'areas' of patrol
+    - whereas for a general store's trade option, it's a single 'sales floor' area, so you're either in the shopping menus or chatting away in that area
+    
+    - so, SET THE STAGE: who/what is around, what broad (top-level) options are available, and then what options are 'attached' to entities
+        - all the various 'actors' ... hm, how to set it up? players and their party, obviously at minimum
+        - then any 'necessary' interactable bits
+
+
+    CHATVENTURE MODES
+    Meta: with latest conceptual changes, events divides up the 'attention' of different players doing different things...
+        ... so if the mode is NOT chill, or null, or whatever, then it means everyone is being FORCED into a specific scenario
+    - chill: take your time, do what you'd like, watch events roll by with the possibility of new options cropping up
+        - distinguishing feature of this mode is it's chat-primary, allowing you to respond to stuff happening, or just eff around with abilities
+        - going into a shop in a township has this mode, as does patrolling, and probably exploring for a lot of it
+    - battle: battleground(s) are active, time to RUMBLE!
+    - choose: you're interacting with some combination of environment or npc(s)
+    - trade: you're knee-deep in the current context's wares!
+
+    ... updated context/index's initial playStack object to include more useful data to render options
+
+
+    CHATVENTURE OPTIONS - ARRAY OF OBJECTS
+    option: {
+        echo: `Button Says This`,
+        description: ``, // 
+        whoCanChoose: 'ffa', // a code for whether it's creator-only, anyone participating, etc.
+        optionFlags: {type: 'engage'}
+
+    }
+
+    BIG QUESTIONS ON IMPLEMENTATION
+    - for chill-style modes, how do we determine ambient event possibilities?
+    - how do we determine what options are available and when?
+    - for chatventures that lead to trading, for example, how should we allow players to shop independently?
+        - basically, implementing 'sub-modes'... each player can engage with options independently in some cases
+
+
+    The good news is that if we can get PATROL up and running, we can call that 'good' for alpha purposes!
+    -- well, and shopping. and maybe exploring. :P
+
+
+
+
+    
+
+*/
+// const chatventureBlueprints = {
+//     'chill': {
+//         type: 'chill'
+//     },
+//     'patrol': {
+//         type: 'patrol', 
+
+//         init() {
+//             // this may be used just to get all timers going and/or to scoot in all relevant participants
+//         },
+//         createOptionObj(agent, optionFlagData) {
+//             // this allows us to create the optionObj dynamically and then pass it down to parseOption
+//             const optionObj = {...optionFlagData, agent: agent};
+//             chatventureBlueprints['patrol'].parseOption(optionObj);
+//         },
+//         parseOption(optionObj) {
+//             // when someone chooses an option, this 'resolves' it for them
+//             switch (optionObj.type) {
+//                 default: break;
+//             }
+//         }
+//     },
+//     'trade': {
+//         type: 'trade',
+//     }
+// }
+
+const chatventureFunction = {
+    leaveChatventure(agent) {
+
+    }
+}
+
+// ok! the goal here is to have option-making buttons that create fully functional 
+const createChatventureOption = {
+    chill() {},
+    trade() {},
+    patrol() {},
+    explore() {},
+    fight() {},
+    leave() {
+        return {echo: `LEAVE`, onSelect: 'leaveChatventure'}
+    },
+    test() {
+        /*
+        
+        OK! This will be our test case to make sure it all works, as the name suggests. Now!
+        ... hm. This may be a job for a Class, again. Or not. Let's see how she flies.
+!MHRY
+        OPTION BUTTON BITS:
+        {
+            echo: `CLICK ME`, // what the button reads as; defaults to
+
+        }
+
+        // oh, should we return a whole buncha buttons, potentially? like EXPLORE options will be more than one... maybe?
+        
+        */
+        // this one is just to enter a semi-blank 'event' sub-menu that can be dismissed and has no meaningful actual options :P
+    }
+};
+
+
+
+// !MHRchat
+// this is very barely even using blueprints anymore :P
+// sooooo maybe this one doesn't really use blueprints so much as creator, location, etc.?
+class Chatventure {
+    constructor(creator, location) {
+        this.id = creator != null ? generateRandomID(creator.name) : generateRandomID('chv');
+        this.type = 'chill';
+        this.creator = creator.name;
+        this.players = {};
+        this.players[creator.name] = creator;
+        this.mobs = {};
+        if (creator.party != null) {
+            Object.keys(creator.party).forEach(entityID => {
+                if (creator.party[entityID].entityType === 'player') this.players[entityID] = creator.party[entityID];
+                if (creator.party[entityID].entityType === 'npc') this.mobs[entityID] = creator.party[entityID];
+                if (creator.party[entityID].entityType === 'mob') this.mobs[entityID] = creator.party[entityID];
+            });
+        }
+        this.joinLimit = 100;
+        this.joinRules = {};
+        this.events = {};
+        this.mode = 'chill';
+        this.options = {};
+        this.staging = {};
+        this.history = [];
+    }
+}
+
 // note that mobs should be stealable and have LOOT, as well
 class Mob {}
 
-class NPC {}
+// what can ya build? how can ya build it? what does it do? 
+/*
 
 
+
+Constructing some structing
+- nexus is the conduit for inter-chat travel
+- perimeter is the perimeter of the township, the gateway to 'scouting'/patrolling/local area chatventuring
+
+BRAINSTORM:
+Many of the below can be constructed in various ways, such as a blacksmith tent or blacksmith cabin; class-buildings are likely an exception due to their nature
+[o] Construction Types: tent/hut/shack, cabin/house, building/shop, hall
+- tavern
+- den (rogue)
+- barracks (fighter)
+- temple or sanctuary (sympath)
+- tower (mage)
+- foolplace (only there in minstats scenario)
+- general store
+- lumberjack
+- mining
+- blacksmith
+- leatherworker
+- clothier
+- apothecary
+- stables
+- townhall
+- training yard
+
+!MHR
+so what do we need to know about structs?
+    generatedRandomID or fixed name, depending: {
+        type: '',
+        nickname: '',
+        description: '',
+        innerDescription: '',
+        level: 1,
+        interactions: {shop: {buy: [], sell: []}},
+        icon: {},
+        gps: {},
+        dimensions: {x: 1, y: 1, z: 1},
+        construction: {}, // what it's made of... different materials can confer different effects/stat boosts?
+        boosts: {township: {}, player: {}},
+        inventory: {wares: [], construction: {}, wealth: 00, }, // we'll track these for... reasons!
+    }
+
+    NOTE: we can include 'extra' stuff the Class does NOT inherit here, such as special methods for naming, upgrade/level data, etc.
+    ... and we can further play with method inheritance, if we're feeling especially spunky for future struct permutation
+
+*/
+const structBlueprints = {
+    'nexus': {
+        type: 'nexus', nickname: `The Nexus Crystals`, 
+        description: 'A jagged crownlike blossom of translucent blue crystal, standing twice the height of a tall man, that acts as the heart of the township.',
+        innerDescription: 'How did you even get IN here? Crystals! Crystals everywhere!',
+        level: 1, interactions: {nexus: 'nexus'}, icon: {}, gps: {}, dimensions: {x: 1, y: 1, z: 1}, 
+        construction: {hub: {crystalline: 100, complexity: 500}},
+        boosts: {township: {}, player: {}},
+        inventory: {construction: {}},
+
+        nexus() {},
+        init(newNexus, area) {
+            newNexus.description = `${area.nickname}'s Nexus is a jagged crownlike blossom of translucent blue crystal, standing twice the height of a tall man, that acts as the heart of this township.`;
+            return;
+        }
+    },
+    'perimeter': {
+        type: 'perimeter', nickname: `Township Perimeter`,
+        description: `I have nothing to say about what I am, for I have not been initialized properly, and therefore am at least partially ERROR.`,
+        innerDescription: `You stand upon the perimeter of the township.`,
+        level: 1, interactions: {visit: {patrol: 'patrol', explore: 'explore'}, patrol: 'patrol', explore: 'explore'}, icon: {}, gps: {}, dimensions: {x: 0, y: 0, z: 0}, // hm, gonna have to rethink how to define perimeter dimensions
+        construction: {}, // not yet filled with walls and towers and gates
+        boosts: {township: {}, player: {}},
+        inventory: {construction: {}},
+
+        patrol(agent, origin) {
+            // THIS: calling this should fully initialize a chatventure's initial state, including any necessary timeouts, events, participants, and other conditions
+
+            // what else do we need to know? let's consider...
+            // through some dark JS sorcery, uh... this all works! so, um, awesome. that makes calling universal struct functions much easier.
+            // structBlueprints['perimeter'].patrol('Blue');
+            // structBlueprints['perimeter']['patrol']('Red');
+            // structBlueprints['perimeter'][structBlueprints['perimeter'].interactions.patrol]('Lord Dekar');
+            
+            /*
+            
+            OK, let's get this going...
+            - any 'chillable' struct should have a VISIT object that loads a default CHILL MODE with listed sub-options as well
+            - those structs, such as above, can also have top-level buttons for those options that can be "jumped to" in the likely case you don't care to 'hang out'
+            
+            */
+
+            return console.log(`A new patrol is FULLY POSSIBLE THROUGH THE MAGIC OF JAVASCRIPTING!! :D`);
+        },
+        explore(agent, origin) {},
+        visit(agent, origin) {
+            /*
+            !MHRX
+            Ok, here we go!
+            - AGENT is the requesting entity, currently definitely a player
+            - ORIGIN is the object that was used to begin the chatventure, currently absolutely the struct in question, but later... who knows! magic items! Narnian furniture!
+
+            - substantiate a 'chill' mode chatventure centered on the origin
+            - what else do we need to know to get this set up properly?
+            - ... probably nothing else, actually; this is just 'hanging out at/in the struct,' so it's just to chat and mess around with abilities
+            - that said, we DO want access to the other interactions of the struct so we can make buttons out of them and hit them up at discretion
+            - for now, just making a MUDroom and scooting the player in there is golden, so let's do that!
+
+            - oh, what if a chatventure already exists for the thing that wants to be visited? ideally we JOIN the pre-existing chatventure in that case
+            - ok, new characters should now have interactionChatRefs on their township stuff; interactionChatRefs['visit'] will be null if no chatventure, or ID if so
+            - we can work with this now!
+            
+            - CONSIDER: since we're nesting through the ORIGIN, maybe a BELONGSTO to point to the original allSouls key so we can backsolve gps stuff
+
+            OK! So we can now have a player call visit(player, theirPerimeter)...
+            We can check origin.interactionChatRefs['visit'] to be null or a chatventureID
+
+            now then! making a new chatventure! let's go grab a ref for chatventure class, as well as blueprints...
+
+
+
+            const chatventureBlueprints = {
+                'patrol': {
+                    type: 'patrol', 
+
+                    init() {
+                        // this may be used just to get all timers going and/or to scoot in all relevant participants
+                    },
+                    createOptionObj(agent, optionFlagData) {
+                        // this allows us to create the optionObj dynamically and then pass it down to parseOption
+                        const optionObj = {...optionFlagData, agent: agent};
+                        chatventureBlueprints['patrol'].parseOption(optionObj);
+                    },
+                    parseOption(optionObj) {
+                        // when someone chooses an option, this 'resolves' it for them
+                        switch (optionObj.type) {
+                            default: break;
+                        }
+                    }
+                },
+                'trade': {
+                    type: 'trade',
+                }
+            }
+            // !MHRchat
+
+            class Chatventure {
+                constructor(blueprint, creator) {
+                    this.id = creator != null ? generateRandomID(creator.name) : generateRandomID('chv');
+                    this.type = blueprint.type || 'chill';
+                    this.creator = creator.name;
+                    this.players = {};
+                    this.players[creator.name] = creator;
+                    this.mobs = {};
+                    if (creator.party != null) {
+                        Object.keys(creator.party).forEach(entityID => {
+                            if (creator.party[entityID].entityType === 'player') this.players[entityID] = creator.party[entityID];
+                            if (creator.party[entityID].entityType === 'npc') this.mobs[entityID] = creator.party[entityID];
+                            if (creator.party[entityID].entityType === 'mob') this.mobs[entityID] = creator.party[entityID];
+                        });
+                    }
+                    this.joinLimit = 100;
+                    this.joinRules = {};
+                    this.events = {};
+                    this.mode = 'chill';
+                    this.options = {};
+                    this.staging = {};
+                    this.history = [];
+                }
+            }    
+
+
+            */
+            // ...
+
+            switch (origin.interactionChatRefs['visit']) {
+                case null: {
+                    console.log(`${agent.name} is trying to visit ${origin.nickname}. Turns out that chatventure doesn't exist yet! So we must create it!`);
+                    let newChatventure = new Chatventure(agent);
+                    newChatventure.staging = {description: `You are standing in a timeless void, because new Chatventure()s don't accept location information yet.`};
+                    Object.keys(origin.interactions).forEach(interactionKey => newChatventure.options[interactionKey] = {});
+                    delete newChatventure['visit'];
+                    // HERE: probably go ahead and substantiate them options...
+                    // how, you ask? through type blueprinting! ... probably! 
+                    // theoretically the struct itself should have sufficient seed data for any viable event, such as trading or adventuring
+                    // a lot to wrap the ol' noodle around with all this...
+                    // anyway, option-initing will vary from struct to struct, so chatventureBlueprints should now be OPTION initialiation, woo!
+                    /*
+                    
+                    What a head-twister this whole affair is. Woo-ee.
+                    Ok. So here we need to initialize all options, including a LEAVE option that just lets you depart the chatventure (with your party?)
+                        ... I'm a little worried that party stuff will get wacky-wild pretty quickly :P
+                    
+                    We know that this is the VISIT for perimeter. Should we lean into that?
+
+                    Inheriting the interactions from the struct is a good start, we're doing that already.
+                    ... so the chatventureOptionBlueprints for each can GENERALIZE their creation.
+
+                    meaning that we take in an optionalEcho, and then try to decide what other data the option needs in order to create its event/result
+
+                    PATROL needs local monster data, which... we haven't even begun to create any version of :P
+                    LEAVE doesn't need much of anything
+                    VISIT is already happening and isn't really an event
+                    TRADE needs to be able to load information to let the player send data about what they want to buy and sell, productively
+                    EXPLORE needs data on what can be explored, and will branch out into a new chatventure tied to a given explorable place?
+                    FIGHT THAT GUY options need to be present, too
+
+                    doing CHILL just lets us rest at the area and see nonsense go by
+
+                    ... in the end, we need each OPTION to have enough in it to be able create or join an event for a player ('doing' in playStack)
+
+
+
+                    
+                    */
+                    newChatventure.options['leave'] = {
+                        echo: 'LEAVE',
+                        onSelect: 'exit'
+                    };
+                    
+                    console.log(`A NEW CHATVENTURE LOOKS LIKE THIS: `, newChatventure);
+                    // HERE: io.to everybody involved proper GET INTO THIS CHATVENTURE data
+                    // HERE: io.to chatventure history everybody showing up
+                    break;
+                }
+                default: {
+                    console.log(`${agent.name} is trying to visit ${origin.nickname}, and we found a ref, so we should join the chatventure with ID of ${origin.interactionChatRefs['visit']}`);
+                    break;
+                }
+            }
+
+            return;
+        },
+        init(newPerimeter, area) {
+            // first example of this function's use... ideally, 'reads the room' of the township context for any struct to help 'personalize'
+            // this is also called upon first introduction of the completed struct to the area, including any context data
+            // for now it doesn't need to really do much, though :P
+            newPerimeter.interactionChatRefs = {};
+            Object.keys(newPerimeter.interactions).forEach(interactionKey => newPerimeter.interactionChatRefs[interactionKey] = null);
+            newPerimeter.description = `${area.nickname}'s perimeter is currently only a concept, an imaginary but agreed-upon line that divides what is 'township' from what is wilderness.`;
+            return;
+        }
+    },
+    'tavern': {
+        type: 'tavern', nickname: `Township Tavern`,
+        description: `A simple but functional building that serves as a watering hole, entertainment hub, and in a pinch, a place for weary travelers to rest.`,
+        innerDescription: `It's pretty quiet in here. Somebody is probably pouring drinks somewhere. Someone is drunk and asleep in the corner.`,
+        level: 1, interactions: {visit: {recruit: 'recruit', rest: 'rest'}, recruit: 'recruit', rest: 'rest'}, icon: {}, gps: {}, dimensions: {x: 1, y: 1, z: 1}, // hm, gonna have to rethink how to define perimeter dimensions
+        construction: {mainHall: {lumber: 100, complexity: 20}},
+        boosts: {township: {}, player: {}},
+        inventory: {construction: {}},
+
+        recruit() {},
+        rest() {},
+        init(newTavern, area) {}
+    },
+    'general store': {
+        type: 'general store', nickname: `Township General Store`,
+        description: `A simple but functional building that serves as a watering hole, entertainment hub, and in a pinch, a place for weary travelers to rest.`,
+        innerDescription: `It's pretty quiet in here. Somebody is probably pouring drinks somewhere. Someone is drunk and asleep in the corner.`,
+        level: 1, interactions: {visit: {trade: 'trade'}, trade: 'trade'}, icon: {}, gps: {}, dimensions: {x: 1, y: 1, z: 1}, // hm, gonna have to rethink how to define perimeter dimensions
+        construction: {mainRoom: {lumber: 100, complexity: 20}},
+        boosts: {township: {}, player: {}},
+        inventory: {construction: {}, wares: {weapons: {}, armor: {}, tools: {}, items: {}}},
+
+        init(newStore, player) {
+            // takes in a store and mods its initial wares into some combination of useful stuff
+            // it'd be neat if it read the "vibe" of the town to procure maximally useful starting wares for user's starting class
+            // we're passing in the whole-arse player so we have access to ALL their variables, including township, to make some informed and whimsical choices
+            // NOTE: all wares are 'blueprints,' so should meet all the necessary criteria to make a new Item()
+            // we can get cheeky and use pre-existing blueprints as a model for shop wares, rolling fanciful to fruitful changes to baseline gear
+        },
+        trade() {
+            // doopty doo ... init the 'trading' chatventure
+        },
+        init(newStore, area) {}
+                  
+    },
+    'stockpile': {
+        type: 'stockpile', nickname: `Township Stockpile`,
+    }
+
+};
+
+
+
+
+class Struct {
+    constructor(blueprint) {
+        this.id = generateRandomID('struct');
+        this.entityType = 'struct';
+        this.name = blueprint.name;
+        this.type = blueprint.type;
+        this.nickname = blueprint.nickname;
+        this.description = blueprint.description;
+        this.innerDescription = blueprint.innerDescription;
+        this.level = 1;
+        this.exp = 0;
+        this.interactions = blueprint.interactions;
+        this.icon = blueprint.icon;
+        this.gps = blueprint.gps;
+        this.dimensions = blueprint.dimensions;
+        this.construction = blueprint.construction;
+        this.boosts = blueprint.boosts;
+        this.inventory = blueprint.inventory;
+    }
+}
 
 // for now, HAX for Zenithica
 // note to self: make sure to initialize ALL variables, such as history, when doing actual Zenithica setup
@@ -209,39 +710,108 @@ const ambientZenithica = [
 
 Modeling...
 CLASS: {
+    tier: 123, // 'pecking order' of classes; higher tiers scale up the reqs and costs automatically, probably?
     requirements: {
-        level: 0,
-        classLevels: {warrior: 3, rogue: 5},
-        achievements: [],
-        stats: {}, // may or may not require stats in actuality
-    },
-    levelBonuses: [{}, {}], // handy array for levels from 0 onward!
-    abilities: {
-        // abilities with requirements and cost here, and once learned, we reference allAbilities instead for details
-        abilityName: {requirements: {}, cost: {}}
-    },
-    prefixes: {...do we want to call them that? :P}
+        target: 500,
+        levelMod: 100,
+        classMods: {warrior: 50, rogue: 100},
+        statMods: {stat: modNum},
+        ...?
+    }, // an alternative model for requirements that's "softer" in that you just gotta hit the target based on your values * the given mods in total
+    // oh that way we can also start revealing an unlockable class as we begin to meet requirements! neato!
+    // there can also be 'hard' requirements like meeting a certain npc or npc type, doing a quest, whatever else on the 'actually gain the class' bit
+    // by default we need to find a 'source' to begin learning the class, and that source can be the 'gatekeeper' for any hard req(s)
+    // ooh and npcs can have 'teaching' mods to costs, now or later, for abilities and maybe even classes
+    // maybe same for pcs
+    levels: [{stats, skills, permaStats, permaSkills}, {}], // handy array for levels from 0 onward! ... we can simplify the math by having the 'total' boost for each class in each
+    abilities: {ability1key: true, ability2key: true, etc.}, // just a quick ref to abilityBlueprints
+    initialAbilities: {}, // all the abilities this class 'starts' with, so as soon as the class is earned, ta-da, you know these!
+    prefixes: {...do we want to call them that? :P} ... alternatively, just have all prefixes come from achievements and levels
 }
+... we can have levels[0] either be null or an object with nothing really in it, as we'll want to be starting our level at 1 for sanity's sake
 
 
-... separate thought, but if abilities are learned OUTSIDE of a class, how do we level 'em up? :P
-    - maybe just have an ability screen for that, and gaining exp automatically levels up the class, then you can 'spend' gained exp on abilities
-    - the other idea is to have to 'purchase' stuff in the class to level it up
-    - and can add other requirements down the road
-    - ok, I waffled in my thinking a bit, but I think ultimately having to go TRAIN with someone/at somewhere to push class exp is neat
-    - cost can be exp, wealth, other??
-    - in this model, learning to Craft is through specific classes, rather than having it be a "free find-it-yourself skills" thing
-    - ok, everything-is-abilities, we're disregarding skills for PCs, and maybe for NPCs as well
-        - passives and perks is where it's at! and level! and stats! :P
+
+All abilities are tied to a class. Leveling them up adds EXP to the class! Neat.
+    - expLevel and useLevel, separate concerns
+    - only actives can gain through useLevel, probably... though if we got quite fancy we could check when certain passives are checked?
+    - nah, only actives for now
+
+
 
 */
-const allClasses = {
-    'rogue': {},
-    'warrior': {},
-    'sympath': {},
-    'mage': {},
-    'fool': {}
+const classBlueprints = {
+    'rogue': {
+        tier: 1,
+        requirements: {target: 100, levelMod: 20, classMods: [], statMods: []},
+        levels: [
+            null,
+            {expReq: 0, stats: {}, skills: {}, permaStats: {}, permaSkills: {}},
+        ],
+        abilities: {},
+        initialAbilities: {}
+    },
+    'fighter': {},
+    'sympath': {
+        tier: 1,
+        requirements: {target: 100, levelMod: 20, classMods: [], statMods: []}
+    },
+    'sorcerer': {},
+    'fool': {},
+    'tinker': {}
 };
+
+/*
+
+Building Classes - at least the first few levels!
+
+
+ROGUE
+    [Actives]
+    - steal swag/wealth
+    - steal balance
+    [Passives]
+    - 
+
+FIGHTER
+    [Actives]
+    - bigolhit @ damage + unbalance
+    - guard
+    - cover
+    - provoke
+    [Passives]
+    -
+
+SYMPATH
+    [Actives]
+    - zephyr (wind1)
+    - calm/sleep (wind2)
+    - purify (water1)
+    - endure (earth1)
+    - unfocus
+    [Passives]
+    -
+
+MAGE
+    [Actives]
+    - flamecast
+    - frostcast
+    - boltcast
+    // water, earth, and wind are more advanced and nuanced, so even these 'brute force' versions have higher reqs
+    - watercast
+    - earthcast
+    - windcast
+    - shield
+    - intuit
+    - charged air // 'field' magic for changing the local environment, a little or a lot
+    [Passives]
+    - 
+
+FOOL
+
+TINKER
+
+*/
 
 
 /*
@@ -269,6 +839,8 @@ messages can also be in an array, defaulting to [0] but scaling up based on skil
         aoe: 'single',
         windup: 0,
         cooldown: 0,
+        expScale,
+        useScale,
         effects: {
             damage: {
                 stat: atk,
@@ -287,20 +859,145 @@ messages can also be in an array, defaulting to [0] but scaling up based on skil
 
     can add extra flags that some abilities/mods/equipment/etc. can check for... other: {draconic: 1}
 
+    newest: all abilities are tied to a Class; it may theoretically be possible to learn and improve an ability without having access to its class? hm
+    ... so potential bufftypes for mods: type, flavor, intent, action
+    abilitykey: {
+        name: 'Name',
+        tier: 123, // modifies the required exp/use scales, as well as the class exp gained from leveling it up
+        active: true || false,
+        type: magical/martial/breath/???,
+        flavor: '', // vanilla!... no, actually, stuff like element
+        intent: attack/recover/buff/debuff,
+        target: self/other/any/area,
+        aoe: single/group/side/all,
+        action: spellcast/movement/???,
+        windup: [null, 0, ...], // another 10-level array
+        cooldown: [null, 0, ...],
+        class: '', lowercased name of class this ability is associated with
+        exp: {value: 0, level: 0, scale: []}, // upon exp up, check scale[level + 1] vs value, increment if necessary; up to Level 5? 10?
+        use: {value: 0, level 0, scale: []}, // similar to above
+        mods: {}, // mods to the ability applied through use level
+        requirements: {soft: {target: 100, classLevelMods: {fool: 5}, abilityLevelMods: {abilityName: 10}}, hard: {classLevels: {fool: 5}, abilityLevels: {abilityName: 3}}}, // the requirements to learn the ability in the first place!
+        // for requirements, abilityLevels/Mods include both exp AND use cumulatively, so even without exp-leveling you can hit a req to learn a new ability
+        effects: {
+            damage: {
+                stat: atk,
+                base: [null, 10], // in an array that's based on ability's expLevel, with 0 nulled out since we expect everything to be at least level 1
+                mod: [null, 1.5],
+                accuracy: [null, 0.85],
+                vs: 'target' // having this here allows us to iterate through effects and apply concepts such as potential backfire, blowback, and other side effects
+            },
+            effectTypeX: {
+                ...
+            }
+        }        
+        use(agent, target)  {
+            // can include roomContextData as a param, OR bake it into an expanded locationData for the agent & target
+            // grab them refs and MUTATE
+            // ALSO, include any prefix synergies in here, too! ... any special effects above and beyond the base effect of prefixes
+            let firstPersonMsg = [`You do the thing to ${target.name}`];
+            let thirdPersonMsg = [`${agent.name} does the thing to ${target.name}`];
+            // this.use.value += 1; // possibly, we can apply mods based on user's stats, the exp.level of this, or agent aptitudes?
+            // we haven't defined aptitudes yet, though, so... just a 'maybe' concept for later
+            return;
+        },
+        checkForLevelUp(type) {
+            // can check for type === 'exp' || 'use' ... and if neither is present, check both?
+        },
+        prefixes: {}, // no specific prefixLoad limit, but costs are amped exponentially
+        prefixing() {
+            // here: checks for applied prefixes and renames the ability accordingly, if applicable
+        }
+    }
 
 */
-// note that currently we're intending this to be 'all abilities' blueprints,' with 'personalized' level of experience/skill with the ability attached to each player
-// the specific shape of that concept tbd
-const allAbilities = {
 
+const abilityBlueprints = {
+    /*
+    
+    FIRECAST THOUGHTS
+    - the windup/charge for this one... what number(s) make sense here depend GREATLY on how we define the length of a normal turn
+    - the 'castTime' has to be a smart investment somehow; it has to be more useful than just spamming 'attack' over and over in the same time frame in almost all cases
+    - so take a little time to figure that out now-ish
+    TIMING!
+    turns occur at 500 'charge,' 50 + speed is base, woo
+    
+    abilities can 'charge' faster than default turns depending on type; 'abilityCharge' setups should ideally take into consideration boosts to, say, casting speed
+    
+    */
+    'Flamebolt': {
+        simplename: "Flamebolt", tier: 1, active: true, type: 'magical', action: 'spellcast', intent: 'attack', flavor: 'fire', target: 'other', aoe: 'single',
+        windup: [null, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500], // relative time
+        cooldown: [null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // absolute time
+        class: 'mage',
+        effects: {
+            damage: {bonus: 20, magnitude: 2, flavor: 'fire', stat: 'mag', vs: 'res', target: 'target'}
+        }, // rejigger as shorthand descriptor/skill card preview info builder since actual use parameters are gonna live in use() now
+
+        use(agent, target) {
+            // all actual effects and prefix-checking goes here
+            /*
+
+            HMMMM: what to do if the target is prefixed into multi-target?
+            - well, we COULD just call the initial use() many times, but the output of that could get pretty wild
+            - maybe more ideally we can do a typeof on target and split depending on that
+            - or we could always assume target is an array
+            - oh, looks like typeof does OBJECT for both {} and [], so can use Array.isArray(VAR) to get a true/false on that
+            
+            Our first ability! We want USE() to:
+            - calculate all damage done and the total result of all hp/mp/etc. exchanges/changes
+            - apply those changes to the agent
+            - io.to @ chatventure channel of agent (assuming that any interested parties will see it via that) with 1st/2nd/3rd person messaging
+            - send the 'eventResultObject' to the chatventure to parse
+            
+            */
+            // what we want to do here is figure out all the calcs for damage done, throw the result of this action into the chatventure
+        },
+        levelUp(agent) {},
+        expScale: [null, 0], useScale: [null, 0]
+    },
+    'Zephyr': {
+        simplename: "Zephyr", tier: 1, active: true, type: 'magical', action: 'spellcast', intent: 'recover', flavor: 'wind', target: 'any', aoe: 'group',
+        windup: [null, 1000], // hm, maybe it'd be more reasonable to have a 'scaling' object and just pass the level into that?
+        cooldown: [null, 0],
+        class: 'sympath',
+        effects: {},
+
+        use(agent, target) {},
+        levelUp(agent) {},
+        expScale: [null, 0], useScale: [null, 0], powerScale: [null, {}]
+    }
 };
 
-/*
+class Ability {
+    constructor(blueprint) {
+        this.id = generateRandomID('abl');
+        this.mods = {};
+        this.exp = 0;
+        this.expLevel = 1;
+        this.use = 0;
+        this.useLevel = 1;
+        this.simplename = blueprint.simplename;
+        this.currentName = this.simplename;
+        this.tier = blueprint.tier;
+        this.active = blueprint.active;
+        if (this.active) {
+            // passive abilities don't need any of this :P
+            this.type = blueprint.type;
+            this.action = blueprint.action;
+            this.intent = blueprint.intent;
+            this.flavor = blueprint.flavor;
+            this.target = blueprint.target;
+            this.aoe = blueprint.aoe;
+        }
 
-NPCs 'live' in allSouls.
-Mobs and other entities 'live' in chatVentures, by default, though could theoretically be 'appended' quietly to allSouls for better durability.
+    }
+}
 
-*/
+
+// loosely, progression rules for townships; may rename when implementing
+const townshipRules = {};
+
 
 function rando(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -509,6 +1206,31 @@ io.on('connection', (socket) => {
         // HERE: sort out lastViewTime logistics to give meaningful data for the client to parse for the player
     });
 
+    //!MHR
+    socket.on('interact_with_struct', interactionObj => {
+        const { structToInteract, interaction } = interactionObj; 
+        console.log(`It appears ${thisPlayer.name} wants to interact with ${structToInteract.nickname} by doing a/n ${interaction}?`);
+
+        // console.log(`STRUCT INTERACTION REQUEST. structToInteract is `, structToInteract);
+        
+        // ok! this is working great so far. 
+        structBlueprints[structToInteract.type][interaction](thisPlayer, thisPlayer.township.townMap.structs[structToInteract.type]);
+
+        // what should this socket return? anything in particular? let's brainstorm...
+        /*
+        
+        We can handle socket-sending in this fxn, making some bold assumptions, OR we can have the interaction functions handle it.
+        - my instinct is to handle it in the fxn? let's give it a go
+
+        MIND: we need to also JOIN the socket, and then send 'You arrive' 1st person and 'agent.name arrives' 3rd person
+
+        so, onward to VISIT()
+
+        
+        */
+        return;
+    });
+
     socket.on('player_creation', creationObject => {
         // validate, then create in allSouls, then save GameState into DB using a new date-checking save fxn, then pass brand-new player data down to client for first steps!
         // oh, and we can 'log them in' here... repeating all of the above, which may make a function useful to DRY it out
@@ -650,9 +1372,17 @@ io.on('connection', (socket) => {
         brandNewPlayer.token = craftAccessToken(brandNewPlayer.name);
 
         brandNewPlayer.level = 0;
-        brandNewPlayer.exp = {}; // I'm sure there's a reason this is an object and not a number :P
+        brandNewPlayer.exp = 0;
+        brandNewPlayer.entityType = 'player';
 
         brandNewPlayer.chatventureID = undefined;
+        // maaay go with the below instead, because chatventures have a LOT going on :P
+        brandNewPlayer.chatventure = {
+            id: undefined
+        };
+
+        // party members! it's about to be a thing! party up!
+        brandNewPlayer.party = {};
 
         // HERE: knowing their class, give them basics of that class's perks and abilities (first we need to define some :P)... init their core class, essentially
         brandNewPlayer.currentClass = brandNewPlayer.class;
@@ -666,27 +1396,49 @@ io.on('connection', (socket) => {
         // they won't have any non-starting-class abilities yet, but maybe some sort of Sanctuary/special township utility 'spell' or ability could slot in here
         brandNewPlayer.equippedAbilities = {
             max: 3
-        }
+        };
 
+        // the player's copy of all abilities (known)
+        // thinking that not ALL abilities need to have a class anymore; some can just kind of 'be' :P
+        // expScale[0] can be purchase cost, if other conditions are met? anyway!
+        // stuff like ATTACK or PEW can go here
+        brandNewPlayer.abilities = {};
+
+        // just a quick filtered subset of all abilities the player has 'current' access to thanks to their class
+        brandNewPlayer.classAbilities = {};
 
         // HERE: create their 'base' township, join the socket for it
         // currently, we're using completely static values, but random flavor should come in shortly
         // currently, bare bones, no structs, npcs, etc. ... consult above for setting those up in a bit
+        /*
+        
+        Structs to add:
+        - a specific struct for their starting class so they can train it and pursue class-specific stuff
+            - hm, what if class struct exerted 'influence' based on its level? ... then stuff like general store can 'sense' that influence and stock accordingly
+            - then this same influence could hit npc gen rates, as well
+        - a basic trading post
+        - town perimeter (eventually wall/bulwark/gate)
+        
+
+
+
+        */
         let brandNewTownship = {
             nickname: `${brandNewPlayer.name}'s Township`,
             icon: {},
-            aesthetic: {},
+            aesthetic: {}, // for changing look of the chatroom around, ultimately
             npcs: {},
+            vibe: {}, // vibe changes based on available structures as well as npc's and their 'presence'/influence
             townMap: {
                 description: `Simple as can be, this little township.`,
                 structs: {
                     nexus: {
-                        nickname: `${brandNewPlayer}'s Town Nexus`,
+                        nickname: `${brandNewPlayer.name}'s Town Nexus`,
                         description: 'A jagged crownlike blossom of translucent blue crystal, standing twice the height of a tall man, that acts as the heart of the township.',
                         innerDescription: 'How did you even get IN here? Crystals! Crystals everywhere!',
                         level: 0,
-                        exp: {},
-                        type: '',
+                        exp: 0,
+                        type: 'nexus',
                         interactions: {},
                         icon: {},
                         gps: {},
@@ -706,11 +1458,50 @@ io.on('connection', (socket) => {
             },
             population: 0,
             events: {},
-            resources: {},
+            resources: {}, // forgot what my intent was here :P
             history: [],
             lastTick: new Date()
         };
         brandNewPlayer.township = {...brandNewTownship};
+        // HERE: can whip through and attach structs with the new Struct(blueprint) model
+        // add perimeter, tavern, and classBuilding at this stage
+        brandNewPlayer.township.townMap.structs.perimeter = new Struct(structBlueprints.perimeter);
+        // tavern goes here
+        // classBuilding goes here
+
+
+
+        // HERE: then whip through all those structs and apply the structBlueprints[structType].init(building, area) to give them their starting 'stuff' where applicable
+        Object.keys(brandNewPlayer.township.townMap.structs).forEach(structID => {
+            // NOTE: we can get away with this less specific calling of structID rather than digging up type because upon init all these ids === type
+            structBlueprints[structID].init(brandNewPlayer.township.townMap.structs[structID], brandNewPlayer.township);
+        });
+
+        // HERE: 'read the room' and throw some NPC's down :P
+
+        /*
+        
+        So, in general, we're looking at actions having POTENCY, PRECISION, COST, SPEED
+        ... mostly this is to give more purpose to equipment, such as equipping a Fire Staff of Flaming Flamey-O Hotman
+        ... ok, everything is AMP value, make it easier on ourselves
+        'three checks' concept? every ability gets just THREE things (or four, or five, but let's decide now) to check  
+        
+        
+        */
+
+        // ehhhhhhh
+        brandNewPlayer.mods = {
+            spellCraft: {
+                meta: {power: 0, precisionL: 0, cost: 0, speed: 0},
+
+            }
+        };
+
+        // for new ability learning!
+        // doing a 'blank' init now, and then can go through 'starter class skills' and add their values in
+        brandNewPlayer.skills = {
+            spellcraft: 0,
+        };
 
         // HERE: init their 'derived' stats at base... hp, maxhp, mp, maxmp, atk, def, mag, res, etc. from core stats
         // consider any relevant abilities
@@ -728,7 +1519,7 @@ io.on('connection', (socket) => {
         // HERE: init inventory, equipment, exp, history, level, equippedAbilities, memories
         // it'd be useful to have an equip(target, item) fxn so we can just roll with that going forward
         // for now we'll start 'empty' but for future creations throwing some fun nonsense in here would be amusing
-        brandNewPlayer.inventory = [new Item(blueprints.fancyclothes), new Item(blueprints.leathercap)];
+        brandNewPlayer.inventory = [new Item(itemBlueprints.fancyclothes), new Item(itemBlueprints.leathercap)];
         brandNewPlayer.equipment = {
             rightHand: null,
             leftHand: null,
@@ -738,11 +1529,11 @@ io.on('connection', (socket) => {
             trinket: null
         };
 
-//!MHR
-        equip(brandNewPlayer, new Item(blueprints.rags));
+        equip(brandNewPlayer, new Item(itemBlueprints.rags));
 
         // oh right, MUNNY... we'll go with just a number and 'carte blanche' currency for now
-        brandNewPlayer.wallet = 0;
+        // we'll start with 500 just for testing/spending purposes
+        brandNewPlayer.wallet = 500;
         
         // HERE: init flux? probably an object with {current: 0, max: 99, lastTick: Date()}, and some mechanism of calculating restoration (every 5 min seems fine :P)
         brandNewPlayer.flux = {current: 30, max: 30, lastTick: new Date()};
@@ -767,9 +1558,14 @@ io.on('connection', (socket) => {
         // currently leaning towards having the playstack set up back here so we have 'positional information' about the player
         brandNewPlayer.playStack = {
             gps: 'Zenithica',
+            nickname: 'Zenithica',
+            target: null,
+            chatventure: null,
+            mode: '',
             doing: 'none',
             at: 'none',
-            overlay: 'none'
+            overlay: 'none',
+            data: {} // currently this is kind of a vestigial element, but we'll keep it there for now
         };
 
         // -ideally-, we init all sorts of expected values/actions here so we don't have to later :P
@@ -777,10 +1573,25 @@ io.on('connection', (socket) => {
         
             BRAINSTORM:
             battlesFought, battlesLost, battlesWon, spellsCast, abilitiesUsed,
+
+            I'm not sure we need/want to check all these 'on the fly' for achievements...
+            ... maybe have it tied to one-off player-driven events, like resting, etc. (Morrowind Model of Leveling Up :P)
         
         */
         brandNewPlayer.history = {
-            achievements: {}
+            achievements: {},
+            mpSpent: 0,
+            battlesWon: 0,
+            battlesLost: 0,
+            battlesFled: 0,
+            townshipsVisited: 0,
+            walletGained: 0,
+            walletSpent: 0,
+            walletMax: 0, // awkward way of saying highest amount of wallet at any given time :P
+            spellsCast: 0,
+            abilitiesUsed: 0,
+            damageDealt: 0,
+            damageReceived: 0,
         };
 
         // the power of crystalline memory stores objects, NPC's, maybe even townships in perpetuity under the right conditions
