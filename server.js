@@ -24,20 +24,140 @@ const io = socketIo(server, {
     ... these will get outdated pretty quickly as we go, so adjust them as we approach Live to be more inclusive of all Item class concepts
 
 */
+// NOTE: 'hand' is the slot we want for any single-handed equipment
+// should we add weight/mass considerations? dimensions of any sort? hmmm...
+// oh, and quality/level, with maybe mods or mod possibilities related to some innate quality
+// or maybe quality being 'innate potential' and level being 'how much it's been leveled up'?
+// 'mass' is necessary for blueprints to determine how much raw material is required to construct it, though that's a bit of a later concern, as players cannot craft yet
+// either way, should probably add a 'materialReq' to ensure we don't end up with stuff that's TOO wacky, like a leather axe :P
 const itemBlueprints = {
     rags: {
-        type: 'equipment', build: 'clothes', name: 'Tattered Rags', description: `These clothes look like they've been worn through an apocalypse.`, 
+        meta: 'equipment', type: 'armor', build: 'clothes', name: 'Tattered Rags', description: `These clothes look like they've been worn through an apocalypse.`, 
         slot: 'body', icon: {type: 'x'}, equipStats: {def: {flat: 2, amp: {vitality: 0.5}}}
     },
     fancyclothes: {
-        type: 'equipment', build: 'clothes', name: 'Fancy Clothes', description: `These clothes are quite fashionable, bright, and well-tailored.`, 
+        meta: 'equipment', type: 'armor', build: 'clothes', name: 'Fancy Clothes', description: `These clothes are quite fashionable, bright, and well-tailored.`, 
         slot: 'body', icon: {type: 'x'}, equipStats: {def: {flat: 10, amp: {vitality: 1.5, intelligence: 1.5}}, res: {flat: 10, amp: {wisdom: 3}}}        
     },
     leathercap: {
-        type: 'equipment', build: 'clothes', name: 'Leather Cap', description: `A simple leather cap for your noggin.`, 
+        meta: 'equipment', type: 'armor', build: 'clothes', name: 'Leather Cap', description: `A simple leather cap for your noggin.`, 
         slot: 'head', icon: {type: 'x'}, equipStats: {def: {flat: 1, amp: {vitality: 0.5}}}
+    },
+    cap: {
+        meta: 'equipment', type: 'armor', build: 'hat', name: 'cap', description: `a light cap that snugly covers the top and sides of the head`,
+        slot: 'head', icon: {type: 'x'}, equipStats: {def: {flat: 10, amp: {vitality: 0.5, agility: 0.5}}, res: {flat: 10, amp: {wisdom: 0.5, intelligence: 0.5}}},
+        materialReq: {flexible: 50}
+    },
+    helm: {
+        meta: 'equipment', type: 'armor', build: 'helm', name: 'helm', description: `a straightforward, head-encompassing helm. On the heavier side, but offers good physical protection`,
+        slot: 'head', icon: {type: 'x'}, equipStats: {def: {flat: 15, amp: {strength: 0.5, vitality: 0.5}}, res: {flat: 5, amp: {wisdom: 0.75, intelligence: 0.25}}},
+        materialReq: {}
+    },
+    sword: {
+        meta: 'equipment', type: 'weapon', build: 'sword', name: 'sword', description: `a simple sword`,
+        slot: 'hand', icon: {type: 'x'}, equipStats: {atk: {flat: 10, amp: {strength: 0.5, agility: 0.5}}, mag: {flat: 2, amp: {willpower: 0.25, intelligence: 0.25}}},
+        materialReq: {hard: 40}, dmgMod: 1
+    },
+    rod: {
+        meta: 'equipment', type: 'weapon', build: 'rod', name: 'rod', description: `This is a simple spellcaster's rod, somewhere in length between a long wand and a short staff.`,
+        slot: 'hand', icon: {type: 'x'}, equipStats: {atk: {flat: 2, amp: {strength: 0.25, agility: 0.25}}, mag: {flat: 10, amp: {willpower: 0.5, intelligence: 0.5}}}, 
+        materialReq: {hard: 30, conductive: 60}, dmgMod: 0.7
+    },
+    axe: {
+        meta: 'equipment', type: 'weapon', build: 'axe', name: 'axe', description: `This is a straightforward, single-headed axe, just somewhat larger than a hatchet.`,
+        slot: 'hand', icon: {type: 'x'}, equipStats: {atk: {flat: 12, amp: {strength: 1}}, mag: {flat: 1, amp: null}},
+        materialReq: {hard: 50}, dmgMod: 1.1
+    }, 
+    buckler: {
+        meta: 'equipment', type: 'shield', build: 'buckler', name: 'buckler', description: `a small, nimble shield`,
+        slot: 'hand', icon: {type: 'x'}, equipStats: {def: {flat: 10, amp: {strength: 0.25, agility: 0.75}}},
+        dmgMod: 0.5
+    }, 
+    shield: {
+        meta: 'equipment', type: 'shield', build: 'shield', name: 'shield', description: `a large, round shield`,
+        slot: 'hand', icon: {type: 'x'}, equipStats: {def: {flat: 10, amp: {strength: 0.75, vitality: 0.25}}},
+        dmgMod: 0.75
     }
 };
+
+// by tier-key
+// material, adjective, prefix, etc. to modify; such as Heavy Steel Greatsword, Gleaming Coldsteel Cutlass
+// totally haven't figured out weaponMods yet :P
+// should we just add 'em all together, or have them modify each other, and then the item?
+// ... definitely the latter, but much later
+
+// also want to add special effects such as AMPS 
+const weaponMods = {
+    0: {
+        balanced: {
+            name: 'balanced', tier: 0, type: 'mod', description: `has been carefully balanced`, cost: {nrg: 1.4}, materialReqChange: {},
+            equipStats: {atk: {flat: 2, amp: {agility: 0.25}}}
+        }, 
+        heavy: {
+            name: 'heavy', tier: 0, type: 'mod', description: `is built thick and heavy`, cost: {nrg: 1.2, rawMaterial: 1.2}, materialReqChange: {},
+            equipStats: {atk: {flat: 2, amp: {strength: 0.25}}}
+        },
+    }
+};
+const headMods = {};
+const shieldMods = {};
+const armorMods = {
+    0: {
+        heavy: {
+            name: 'heavy', type: 'mod', tier: 0, description: `has been crafted with a dense, layered design`, cost: {nrg: 1.5, rawMaterial: 1.2},
+            equipStats: {def: {flat: 2, amp: {vitality: 0.25}}}
+        }
+    }
+};
+const universalMods = {};
+
+const weaponPrefixes = {
+    0: {
+        good: {
+            name: 'good', tier: 0, description: `possesses an elongated grip for two-handed wielding`, cost: {nrg: 2}, materialReqChange: {},
+            slotMod: 'doublehand', equipStats: {}
+        }
+    }
+};
+
+// let's figure out how MATERIALS work! ... mostly for the purposes of equipment modding
+// and maybe general workability, although for now 'tier' and maybe type can cover that
+const materials = {
+    0: {
+        copper: {
+            name: 'copper', tier: 0, type: 'metal', meta: 'magical', traits: {hard: 50, flexible: 30, conductive: 60}
+        },
+        bronze: {
+            name: 'bronze', tier: 0, type: 'metal', meta: 'physical', traits: {hard: 60, flexible: 20, conductive: 50}
+        },
+        leather: {
+            name: 'leather', tier: 0, type: 'leather', meta: 'physical', traits: {hard: 15, flexible: 80, conductive: 40}
+        },
+        pelt: {
+            name: 'pelt', tier: 0, type: 'leather', meta: 'magical', traits: {hard: 10, flexible: 90, conductive: 70}
+        },
+        pine: {
+            name: 'pine', tier: 0, type: 'wood', meta: 'magical', traits: {hard: 30, flexible: 45, conductive: 60}
+        }, // may replace with some other wood for 'soft/magical wood' entry
+        oak: {
+            name: 'oak', tier: 0, type: 'wood', meta: 'physical', traits: {hard: 40, flexible: 40, conductive: 40}
+        }
+    },
+    1: {
+        iron: {},
+        'tough leather': {},
+        maple: {},
+    },
+    2: {
+        steel: {},
+        'rugged leather': {}
+    }
+}
+
+// IDEA: upon server startup, define an array of allWeaponBlueprints, allSwordBlueprints, etc. for mob/shop/etc spawning purposes
+// would be even better if we could define 'tiers' of equipment, or levels on the equipment, and roll from there as well
+// for further dilution of pools, such as 'all axes,' we can run THOSE specific requests as-needed in specific scenarios
+
 
 // HERE: all relevant JS classes
 /*
@@ -79,25 +199,80 @@ const itemBlueprints = {
     - extra mods
 
 
+    mass, materials/construction (ref?), 
+
 */
 class Item {
     constructor(blueprint) {
         this.type = blueprint.type;
+        this.meta = blueprint.meta;
         this.build = blueprint.build;
         this.specbuild = blueprint.specbuild || `nonsense`;
         this.name = blueprint.name;
         this.description = blueprint.description;
         this.slot = blueprint.slot;
         this.icon = blueprint.icon;
+        this.materials = {};
+        this.mods = {};
+        this.prefixes = {};
+        this.mass = blueprint.mass || 1;
         this.equipStats = blueprint.equipStats;
+        this.dmgMod = blueprint.dmgMod || null;
+        this.materialReq = blueprint.materialReq || {};
         this.id = generateRandomID();
     }
 
-    build () {
-        // a handy-dandy method that's intended to use the level and any upgrade data to build or re-build this Item!
-        // ... oooor, alternatively, we could have just a global function that does this, too; we'll consider the pros/cons
+    init() {
+        console.log(`Build a new item! The ${this.name}`)
+    }
+
+    construct() {
+        // takes into consideration materials and mods, splices together descriptions, and adds capitalization and periods to bring it home
+        // delete extras such as materialReq, if has been baked in
+        // grab a mod.name and capitalize it, grab a/the material.name and capitalize it, grab this.prefixes[0] and capitalize it, then graft with this.name OR capitalize name
+        // go through and sum all the new stats into the this.equipStats WOO
+        let originalName = this.name;
+        let finalNameString = ``;
+        if (Object.keys(this.mods).length > 0) {
+            console.log(`I am of mods!`)
+            let modSource = this.mods[Object.keys(this.mods)[0]].name;
+            finalNameString += modSource[0].toUpperCase() + modSource.substring(1) + ` `;
+        };
+        if (Object.keys(this.materials).length > 0) {
+            console.log(`I am of materials!`);
+            let materialSource = this.materials[Object.keys(this.materials)[0]].name;
+            finalNameString += materialSource[0].toUpperCase() + materialSource.substring(1) + ` `;
+        }
+        if (Object.keys(this.prefixes).length > 0) {
+            console.log(`I have a prefix!`);
+        } else {
+            console.log(`No prefix for me!`);
+            finalNameString += originalName[0].toUpperCase() + originalName.substring(1);
+        };
+        this.name = finalNameString;
+        console.log(`Congratulations! You have crafted a new item called a ${this.name}, whose stats look like this: `, this);
+        return this;
+        // 
+    }
+    addMaterial(material) {
+        // HERE: check to make sure material is approproiate for this item's construction
+
+        console.log(`Constructing the ${this.name} with a specific material: ${material.name}`)
+        this.materials = {...this.materials, material};
+        return this;
+        // here: parse material stats in
+    }
+    addMod(mod) {
+
+        console.log(`Constructing the ${this.name} with a specific mod: ${mod.name}`)
+        this.mods = {...this.mods, mod};
+        return this;
     }
 }
+
+// const newSword = new Item(itemBlueprints.sword).addMaterial(materials['0'].bronze).addMod(weaponMods['0'].balanced).construct();
+
+
 
 function equip(agent, ...items) {
     // going to try using Spread Magic to equip all the way from ONE to INFINITY items!
@@ -298,19 +473,136 @@ Defining chatventure variables:
 
 const chatventureFunction = {
     leaveChatventure(agent) {
+        // get 'em outta there! ... with their party, probably ... io.to everyone and the chatventure, as well
+        // this should also update player_data, player_update style
 
-    }
+        // HERE, later: check to make sure the agent is capable of leaving the chatventure... physically, mentally, logistically
+
+        const chatventureID = allSouls[agent.name].chatventure.id;
+
+        if (agent.entityType === 'player') {
+            delete allChatventures[chatventureID].players[agent.name];
+            allSouls[agent.name].chatventure = null;
+            allSouls[agent.name].playStack = {...allSouls[agent.name].playStack, chatventure: null};
+            io.to(agent.name).emit('player_update', allSouls[agent.name]);
+        }
+
+
+
+        // IF the chatventure is now empty of players {}, deconstruct it ... we may handle this a bit differently in the future, if chatventures desire to self-run a bit
+        if (Object.keys(allChatventures[chatventureID].players).length === 0) {
+            console.log(`Oh! The chatventure that ${agent.name} just left is now devoid of players. Begone!`);
+            delete allChatventures[chatventureID];
+        } else {
+            const eventObj = {
+                echo: `${agent.name} just peaced out.`
+            }
+            Object.keys(allChatventures[chatventureID].players).forEach(playerName => {
+                io.to(playerName).emit('chatventure_event', eventObj);
+            });
+        }
+
+    },
+    generatePatrolMenu(agent) {
+        // !MHRpatrol
+        // this one will need context, which could theoretically be provided assuming the CHATVENTURE OBJ has data on where it's taking place
+        // remember, we're changing playStack.mode and playStack.doing to be 'chill'/'battle'/'menu' and associated ID, respectively
+
+        // IDEALLY, the patrol's results would be township/context-specific, but for now? tooootally generic is fine, upgrade later after core concept is secure
+        // ooh, traveling traders could crop up, too! ... well, maybe more in explorations... at any rate, consider this after shopping is a thing we can do
+
+        const patrolRNGResult = rando(1,10);
+        let patrolID = generateRandomID(`${agent.name}patrol`);
+        let patrolPrompt = `You patrol around the perimeter of the township. `;
+        let patrolMenu = [];
+        let patrolPotentialEncounter = null;
+        switch (patrolRNGResult) {
+            case 1:
+            case 2:
+            case 3:
+            case 4:
+                {
+                    patrolPrompt += `You find a Husk wandering about, looking rather unthreatening.`;
+                    patrolMenu.push({echo: `Fight it!`, onSelect: `beginBattle`});
+                    patrolPotentialEncounter = new Mob(mobBlueprints.husk);
+                    break;
+                }
+                
+            case 5:
+            case 6:
+            case 7:
+                {
+                    patrolPrompt += `You find a Husk staring vacantly at the township.`;
+                    patrolMenu.push({echo: `Fight it!`, onSelect: `beginBattle`});
+                    patrolPotentialEncounter = new Mob(mobBlueprints.husk);
+                    break;
+                }
+                
+            case 8:
+            case 9:
+                {
+                    patrolPrompt += `You find an aggrevated Husk pacing about, muttering nonsense to itself.`;
+                    patrolMenu.push({echo: `Fight it!`, onSelect: `beginBattle`});
+                    patrolPotentialEncounter = new Mob(mobBlueprints.husk);
+                    break;
+                }
+                
+            case 10:
+                {
+                    patrolPrompt += `You encounter an aggressive, sharp-eyed Husk. You just barely avoid its notice as it stalks along its path.`;
+                    patrolMenu.push({echo: `Fight it!`, onSelect: `beginBattle`});
+                    patrolPotentialEncounter = new Mob(mobBlueprints.husk);
+                    break;
+                }
+            default: break;
+                
+        }
+        patrolMenu.push({
+            echo: `Just leave.`,
+            onSelect: `dismissMenu`
+        });
+
+        // we want to create the menu, throw its contents including npc/mob blueprints into chatventure.events, and then share it down to player via io
+        // so, we need to know: what does the MENU (array?) look like, how do we structure it and slide it in, and how do we resolve it in the next fxn below
+        // oh, and the menu needs a prompt to give the player
+
+        // ok, so now we should have patrolID patrolMenu [{echo, onSelect}, {...}], patrolPrompt ``, and patrolPotentialEncounter of a single mob, excitement
+        // later on: MOAR mobs (and/or stronger mobs)
+
+        let menuData = {type: 'menu', prompt: patrolPrompt, menuItems: patrolMenu, id: patrolID, mobData: patrolPotentialEncounter};
+        menuData.playersViewing = {};
+        menuData.playersViewing[agent.name] = true;
+        
+
+        allChatventures[agent.chatventure.id].events[patrolID] = menuData;
+        allSouls[agent.name].playStack = {...allSouls[agent.name].playStack, mode: 'menu', doing: patrolID, menu: menuData};
+
+        // HERE: player_update, and then reconfig webclient to respond to playStack.mode @ menu and playStack.menu
+        io.to(agent.name).emit('player_update', allSouls[agent.name]);
+        
+        return;
+    },
+    resolvePatrolMenu(agent, choice) {
+
+    },
+    openExploreMenu(agent) {
+        // this one will also need context
+    }    
 }
 
 // ok! the goal here is to have option-making buttons that create fully functional 
 const createChatventureOption = {
     chill() {},
     trade() {},
-    patrol() {},
-    explore() {},
+    patrol(echo) {
+        return {echo: echo?.toUpperCase() || `PATROL`, onSelect: 'generatePatrolMenu', whoCan: 'any'};
+    },
+    explore(echo) {
+        return {echo: echo?.toUpperCase() || `EXPLORE`, onSelect: 'openExploreMenu', whoCan: 'any'};
+    },
     fight() {},
-    leave() {
-        return {echo: `LEAVE`, onSelect: 'leaveChatventure'}
+    leave(echo) {
+        return {echo: echo?.toUpperCase() || `LEAVE`, onSelect: 'leaveChatventure', whoCan: 'any'};
     },
     test() {
         /*
@@ -321,7 +613,8 @@ const createChatventureOption = {
         OPTION BUTTON BITS:
         {
             echo: `CLICK ME`, // what the button reads as; defaults to
-
+            onSelect: chatventureFunction to call,
+            whoCan: 'any' // any, creator, ???
         }
 
         // oh, should we return a whole buncha buttons, potentially? like EXPLORE options will be more than one... maybe?
@@ -333,9 +626,14 @@ const createChatventureOption = {
 
 
 
-// !MHRchat
-// this is very barely even using blueprints anymore :P
-// sooooo maybe this one doesn't really use blueprints so much as creator, location, etc.?
+/*
+    OK-doke, we want LOCATION data. What will this entail?
+    Eh, it can be a single handy object that can be used to reference a source and help create the staging.
+    gps: soulRef
+    atMap: townMap or worldMap
+    area: areaKey or null
+    struct: structKey or null
+*/
 class Chatventure {
     constructor(creator, location) {
         this.id = creator != null ? generateRandomID(creator.name) : generateRandomID('chv');
@@ -357,12 +655,52 @@ class Chatventure {
         this.mode = 'chill';
         this.options = {};
         this.staging = {};
+        this.location = location || {gps: `Zenithica`, atMap: `townMap`, struct: `nexus`, area: null};
         this.history = [];
     }
 }
 
-// note that mobs should be stealable and have LOOT, as well
-class Mob {}
+const mobBlueprints = {
+    'husk': {
+        name: `a Husk`, blueprintRef: 'husk', entityType: 'mob', level: 1, stats: {strength: 20}, variants: []
+    }
+}
+
+class Mob {
+    constructor(blueprint) {
+        this.name = blueprint.name;
+        this.blueprintRef = blueprint.blueprintRef;
+        this.level = blueprint.level || 1; // keep for now; some mobs can have a 'minimum level' specified
+        this.entityType = blueprint.entityType;
+        this.id = generateRandomID(this.entityType);
+        this.inventory = blueprint.inventory || [];
+        this.chatventureID = null;
+        this.currentChatventureEventID = null; // which 'event' they're currently living in, such as a battle or menu?
+        this.soulHome = null;
+        this.wallet = blueprint.wallet || 0; // for... purposes!
+        this.stealInventory = blueprint.stealInventory || []; // will likely refactor
+        this.loot = null; // gotta figure out how to handle loot mechanics
+        this.equipment = {rightHand: null, leftHand: null, head: null, body: null, accessory: null, trinket: null};
+        this.stats = {strength: 10, agility: 10, vitality: 10, willpower: 10, intelligence: 10, wisdom: 10, atk: 10, def: 10, mag: 10, res: 10, hpmax: 50, hp: 50, mpmax: 50, mp: 50}; // 'base' stats
+        this.stats = {...this.stats, ...blueprint.stats}; // overwrite with any 'base' stats provided by the blueprint
+        this.ai = blueprint.ai || null; // ai for behavioral possibilities
+        this.plan = {}; // backup for timeout actions for re-init/server restore
+    }
+    levelTo(level) {
+        // this: separate level-up fxn
+    }
+    init(locationData) {
+        // generate equipment & equipOne through the list, calcStats, apply effects, scale to level?
+        // could use blueprintRef @ mobBlueprints to help roll up level-appropriate data/abilities/stats/equipment/etc.
+        // probably should include some param(s) to help init chatventureID for mobs, location information for NPCs?
+        // can pull together a calcStats fxn for players and mobs alike, apply it here
+        // console.log(`A new mob has spawned! Looks like this: `, this);
+    }
+    actOut() {
+        // or could call this WAKE, but start behavior timeout
+    }
+}
+// let Bob = new Mob(mobBlueprints.husk).init();
 
 // what can ya build? how can ya build it? what does it do? 
 /*
@@ -393,7 +731,6 @@ Many of the below can be constructed in various ways, such as a blacksmith tent 
 - townhall
 - training yard
 
-!MHR
 so what do we need to know about structs?
     generatedRandomID or fixed name, depending: {
         type: '',
@@ -485,67 +822,22 @@ const structBlueprints = {
 
 
 
-            const chatventureBlueprints = {
-                'patrol': {
-                    type: 'patrol', 
-
-                    init() {
-                        // this may be used just to get all timers going and/or to scoot in all relevant participants
-                    },
-                    createOptionObj(agent, optionFlagData) {
-                        // this allows us to create the optionObj dynamically and then pass it down to parseOption
-                        const optionObj = {...optionFlagData, agent: agent};
-                        chatventureBlueprints['patrol'].parseOption(optionObj);
-                    },
-                    parseOption(optionObj) {
-                        // when someone chooses an option, this 'resolves' it for them
-                        switch (optionObj.type) {
-                            default: break;
-                        }
-                    }
-                },
-                'trade': {
-                    type: 'trade',
-                }
-            }
-            // !MHRchat
-
-            class Chatventure {
-                constructor(blueprint, creator) {
-                    this.id = creator != null ? generateRandomID(creator.name) : generateRandomID('chv');
-                    this.type = blueprint.type || 'chill';
-                    this.creator = creator.name;
-                    this.players = {};
-                    this.players[creator.name] = creator;
-                    this.mobs = {};
-                    if (creator.party != null) {
-                        Object.keys(creator.party).forEach(entityID => {
-                            if (creator.party[entityID].entityType === 'player') this.players[entityID] = creator.party[entityID];
-                            if (creator.party[entityID].entityType === 'npc') this.mobs[entityID] = creator.party[entityID];
-                            if (creator.party[entityID].entityType === 'mob') this.mobs[entityID] = creator.party[entityID];
-                        });
-                    }
-                    this.joinLimit = 100;
-                    this.joinRules = {};
-                    this.events = {};
-                    this.mode = 'chill';
-                    this.options = {};
-                    this.staging = {};
-                    this.history = [];
-                }
-            }    
-
-
             */
             // ...
 
             switch (origin.interactionChatRefs['visit']) {
                 case null: {
+                    // we're going to rather recklessly assume the gps of the player's playStack.gps
                     console.log(`${agent.name} is trying to visit ${origin.nickname}. Turns out that chatventure doesn't exist yet! So we must create it!`);
-                    let newChatventure = new Chatventure(agent);
+                    // it makes sense to actually have reference to the local worldMap -always-, but currently the township doesn't 'attach' there
+                    // so localAreaMap for each would include the township?
+                    const visitLocation = {
+                        gps: agent?.playStack?.gps || `Zenithica`, atMap: `townMap`, struct: origin, area: null
+                    }
+                    let newChatventure = new Chatventure(agent, visitLocation);
                     newChatventure.staging = {description: `You are standing in a timeless void, because new Chatventure()s don't accept location information yet.`};
                     Object.keys(origin.interactions).forEach(interactionKey => newChatventure.options[interactionKey] = {});
-                    delete newChatventure['visit'];
+                    delete newChatventure.options['visit'];
                     // HERE: probably go ahead and substantiate them options...
                     // how, you ask? through type blueprinting! ... probably! 
                     // theoretically the struct itself should have sufficient seed data for any viable event, such as trading or adventuring
@@ -579,14 +871,39 @@ const structBlueprints = {
 
                     
                     */
-                    newChatventure.options['leave'] = {
-                        echo: 'LEAVE',
-                        onSelect: 'exit'
-                    };
+                    newChatventure.options['leave'] = createChatventureOption['leave'](`LEAVE`);
+                    newChatventure.options['patrol'] = createChatventureOption['patrol'](`PATROL`);
+                    newChatventure.options['explore'] = createChatventureOption['explore'](`EXPLORE`);
+                    
                     
                     console.log(`A NEW CHATVENTURE LOOKS LIKE THIS: `, newChatventure);
-                    // HERE: io.to everybody involved proper GET INTO THIS CHATVENTURE data
-                    // HERE: io.to chatventure history everybody showing up
+
+                    // HERE: allChatventures - created
+                    allChatventures[newChatventure.id] = JSON.parse(JSON.stringify(newChatventure));
+
+                    /*
+                    !MHRZ
+                    playStack.chatventure should become the ID
+                    ok, player.chatventure = {id: null} is our default, and can hold all chatventure data from there
+                    MEANING... huh. doooo we want double refs? in playStack AND chatventure?
+                    playStack yes. chatventure also I guess yes? ok, we're fine, let's do that; two different purposes being served
+
+
+                    
+                    */
+                    // HERE: update player(s) in allSouls with all their proper data
+                    allSouls[agent.name].chatventure = allChatventures[newChatventure.id];
+                    allSouls[agent.name].playStack = {...allSouls[agent.name].playStack, chatventure: newChatventure.id, mode: newChatventure.mode};
+
+                    // HERE: io.to everybody involved proper GET INTO THIS CHATVENTURE data for client reconfig
+                    // NOTE: we can just send to the player's pre-existing name channel, we don't need a new one, just reconfigure the data conditionals
+                    // NOTE ALSO: we can proooobably get away with a full player update having the desired effect here? let's try that first...
+                    // io.to(agent.name).emit('begin_chatventure', newChatventure);
+                    // console.log(`SENDING THIS PLAYER DOWN WITH NEW CHATTY DATA, I hope: `, allSouls[agent.name]); // this all looks good, so let's see...
+                    io.to(agent.name).emit('player_update', allSouls[agent.name]);
+
+
+                    // HERE: io.to chatventure history everybody that's showing up
                     break;
                 }
                 default: {
@@ -1100,27 +1417,6 @@ function saveGameState() {
     // THIS: pull the TODAY GameState from DB using datekey; if doesn't exist, make new one, and if does, overwrite
 }
 
-// Function still exists to be ported over to saveGameState, a more 'global' function.
-/*
-function saveUser(user) {
-    const filter = { name: user.name };
-    const update = { $set: user };
-    const options = { new: true, useFindAndModify: false };
-    User.findOneAndUpdate(filter, update, options)
-        .then(updatedResult => {
-            console.log(`${updatedResult.name} has been saved and updated in the database.`);
-            // HERE might be a good spot to do the server-user update? user[updatedResult.userID]... though, we'd be pulling stuff we don't want to share, hm
-            // nevermind, just do it below
-        })
-        .catch(err => {
-            console.log(`We encountered an error saving the user: ${err}.`);
-        });
-    
-    // we don't need to update the server version of the user in this case of this function being invoked;
-    // the server-side character is changed first and passed into this fxn
-}
-*/
-
 
 
 io.on('connection', (socket) => {
@@ -1156,6 +1452,7 @@ io.on('connection', (socket) => {
                 history: allSouls[thisPlayer.playStack.gps].township.history.slice(-150),
                 structs: allSouls[thisPlayer.playStack.gps].township.townMap.structs
             };
+            if (thisPlayer?.chatventure != null) thisPlayer.chatventure = allChatventures[thisPlayer.chatventure.id];
             socket.emit('player_update', sanitizePlayerObj(thisPlayer));
             return socket.emit('location_update', initialLocationData);      
             
@@ -1176,6 +1473,7 @@ io.on('connection', (socket) => {
                     history: allSouls[thisPlayer.playStack.gps].township.history.slice(-150),
                     structs: allSouls[thisPlayer.playStack.gps].township.townMap.structs
                 };
+                if (thisPlayer?.chatventure != null) thisPlayer.chatventure = allChatventures[thisPlayer.chatventure.id];
                 socket.emit('player_update', sanitizePlayerObj(thisPlayer));
                 return socket.emit('location_update', initialLocationData); 
             }
@@ -1206,8 +1504,8 @@ io.on('connection', (socket) => {
         // HERE: sort out lastViewTime logistics to give meaningful data for the client to parse for the player
     });
 
-    //!MHR
     socket.on('interact_with_struct', interactionObj => {
+        if (thisPlayer?.name == null) return;
         const { structToInteract, interaction } = interactionObj; 
         console.log(`It appears ${thisPlayer.name} wants to interact with ${structToInteract.nickname} by doing a/n ${interaction}?`);
 
@@ -1228,6 +1526,171 @@ io.on('connection', (socket) => {
 
         
         */
+        return;
+    });
+
+    socket.on('select_chatventure_option', optionObj => {
+        if (thisPlayer?.name == null) return;
+        // receiving: optionObj = {echo: '', onSelect: 'stringedFxn', whoCan: 'any'}
+        // console.log(`Received this chatventure option object: `, optionObj);
+
+        /*
+        const chatventureFunction = {
+            leaveChatventure(agent) {
+                // get 'em outta there! ... with their party, probably
+            },
+            createPatrolChatventure(agent) {
+                // this one will need context, which could theoretically be provided assuming the CHATVENTURE OBJ has data on where it's taking place
+            },
+            openExploreMenu(agent) {
+                // this one will also need context
+            }    
+        }        
+        */
+
+        // hm, we should check whoCan, but that will require some shenanigans, referencing through thisPlayer's chatventure and such to cross-check everything
+        // for now, let's just fire the fxn, see what happens, and ensure we can leave
+        
+        console.log(`Receiving optionObj: `, optionObj);
+        console.log(`Interacting with player named ${thisPlayer.name}`)
+
+        // as before, any SOCKET SENDING should probably occur in the called functions, so be mindful of that going forward
+        chatventureFunction[optionObj.chatventureOption.onSelect](thisPlayer);
+
+
+        return;
+    });
+
+    socket.on('select_chatventure_menu_item', menuItemObj => {
+        if (thisPlayer?.name == null) return console.log(`Nully player attempts menu selection shenanigans, gets shut down.`);
+
+        /*
+        
+                }
+                
+            case 10:
+                {
+                    patrolPrompt += `You encounter an aggressive, sharp-eyed Husk. You just barely avoid its notice as it stalks along its path.`;
+                    patrolMenu.push({echo: `Fight it!`, onSelect: `beginBattle`});
+                    patrolPotentialEncounter = new Mob(mobBlueprints.husk);
+                    break;
+                }
+            default: break;
+                
+        }
+        patrolMenu.push({
+            echo: `Just leave.`,
+            onSelect: `dismissMenu`
+        });        
+
+
+                    patrolPrompt += `You encounter an aggressive, sharp-eyed Husk. You just barely avoid its notice as it stalks along its path.`;
+                    patrolMenu.push({echo: `Fight it!`, onSelect: `beginBattle`});
+                    patrolPotentialEncounter = new Mob(mobBlueprints.husk);
+                    break;
+
+        
+        */
+
+        const { onSelect } = menuItemObj;
+        switch (onSelect) {
+            case 'beginBattle': {
+                // !MHRbattle
+                // playstack gotta mode into BATTLE, friendo; mode: 'battle', battle: {}
+                // playStack.battle should have all of the bits necessary to do Ze Battle
+                // playStack.target can be used for good effect, as well! woo!
+                
+                // THIS: set up chatventure.events[id] @ battleID; with everything we need to know about the battle... which is, admittedly, a lot
+                /*
+                
+                we need to know which 'side' everyone is on, what the teams/groupings are, refs to all the entities... what else?
+                oh, and the mobs need to wake their butts up and start doing stuff, which gets sent to the battlescreen...
+                ... meaning we need a HISTORY! good job, sir
+
+                ... have to recall where mobs 'live'? hmmmmmmmmmm
+                ... well, the MENU event could warp into a new form, keeping its current ID but becoming a battle instead, which makes sense
+                ... that way, the event.mobData (currently a single mob object) is where it could continue to 'live', and we ref it instead in participants
+
+                ... so instead of destroying it, as dismissMenu below, we mutate it into our new object! ... gotta think about what that means downstream
+                BATTLE DATA CREATE ... sides, groups? how to organize?
+                the simplest is 1v1, which would be two sides, each with one group
+                ... which sounds, honestly, like a big ol' pain to parse, because we'd have to go several layers deep each time
+                ... it seems 'easier' to just have a reference to group/faction attached to each entity in the event
+                ... woof, ok, let's just give it a go
+
+                ideally: resolution rules, but for now we'll just have all actions 'ping' the battle to see if a faction's members are all KO'd
+                also ideally: inherit and/or create local area effects/conditions to check against for skills/abilities/etc.
+                consider: having a self-checking timeout function attached to this event on the backend
+                {
+                    history: [],
+                    participants: {
+                        nameOrIdKey: entityRef
+                    },
+                    factions: {
+                        'zenithican': {},
+                        'enemy': {}
+                    },
+                    parties: {},
+                    
+                }
+
+                anyone involved in the event.playersViewing should be mode: 'battle', menu: null, battle: {}
+                AND they should be pushed into the participants, factions, and POSSIBLY parties
+
+                for now, it's 1v1, so make sure that works before adding additional considerations and logistical load
+                
+                we can keep the event's prompt, type, id, and mobData
+                redefine prompt content, redefine type to battle
+                delete menuItems
+                add battleData
+
+                SUMMARY:
+                need to set up the player's end (INCLUDING ACTIONS THEY CAN TAKE... default Strike, Pew, Flee actions, may have to create then equip on brandNewPlayer)
+                    - this is more of a global concept
+                establish functionality for processing attacks (well, abilities do that)... rather, processing damage/effect objects within each entity
+                    - related: maybe having separate mob classes, such as class Husk, ignoring blueprints and therefore assuming more robust type AI
+
+
+                */
+
+                // back to it... remember to io.to everyone, and actOut() on all mobs to start the battle up
+                let battleData = {};
+
+                return;
+            }
+            case 'dismissMenu': {
+                //!MHRmenu
+                /*
+                
+                let menuData = {type: 'menu', prompt: patrolPrompt, menuItems: patrolMenu, id: patrolID, mobData: patrolPotentialEncounter};
+                menuData.playersViewing = {};
+                menuData.playersViewing[agent.name] = true;
+                
+
+                allChatventures[agent.chatventure.id].events[patrolID] = menuData;                
+                
+                */
+
+                console.log(`REMOVING MENU. Player's allSouls playStack is `, allSouls[thisPlayer.name].playStack)
+
+                delete allChatventures[thisPlayer.chatventure.id].events[thisPlayer.playStack.menu.id].playersViewing[thisPlayer.name];
+                if (Object.keys(allChatventures[thisPlayer.chatventure.id].events[thisPlayer.playStack.menu.id].playersViewing).length === 0) {
+                    delete allChatventures[thisPlayer.chatventure.id].events[thisPlayer.playStack.menu.id];
+                }
+                
+                
+                thisPlayer.playStack = {...thisPlayer.playStack, mode: 'chill', menu: null};
+                console.log(`After just fiddling with thisPlayer, allSouls playStack is `, allSouls[thisPlayer.name].playStack)
+                
+
+
+                socket.emit('player_update', thisPlayer);
+
+                return;
+            }
+            default:
+                break;
+        }
         return;
     });
 
@@ -1375,10 +1838,9 @@ io.on('connection', (socket) => {
         brandNewPlayer.exp = 0;
         brandNewPlayer.entityType = 'player';
 
-        brandNewPlayer.chatventureID = undefined;
         // maaay go with the below instead, because chatventures have a LOT going on :P
         brandNewPlayer.chatventure = {
-            id: undefined
+            id: null
         };
 
         // party members! it's about to be a thing! party up!
@@ -1425,6 +1887,7 @@ io.on('connection', (socket) => {
         */
         let brandNewTownship = {
             nickname: `${brandNewPlayer.name}'s Township`,
+            soulRef: `${brandNewPlayer.name}`,
             icon: {},
             aesthetic: {}, // for changing look of the chatroom around, ultimately
             npcs: {},
@@ -1453,6 +1916,7 @@ io.on('connection', (socket) => {
                 map: []
             },
             worldMap: {
+                // theoretically, the townMap would go somewhere in this worldMap, as well
                 areas: {},
                 map: []
             },
@@ -1687,6 +2151,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('equip_item', equipRequestObj => {
+        if (thisPlayer?.name == null) return;
         // equipRequestObj = {slot: equipmentSlot, item: itemToEquip}
         // if unequipping, item = {name: null}
         const { item, slot } = equipRequestObj;
@@ -1712,9 +2177,42 @@ io.on('connection', (socket) => {
         };
         socket.join(name);
         return socket.emit('location_update', locationData);
-    })
+    });
+
+    socket.on('chatventure_action', chatventureActionObj => {
+        if (thisPlayer?.name == null) return console.log(`Nully man trying to do nully things, such misbehavior!`);
+
+        // note that we currently expect the player to be IN the chatventure
+        // there is no planned 'psychic projection' model, but if there were, we'd have to add a change to accomodate for 'which chatventure??'
+
+
+
+        // decided to open this bad boy up to ANY chatventure action, soooooo let's start with just chat
+        switch (chatventureActionObj.type) {
+            case 'chat': {
+                const chatventureEvent = {
+                    echo: chatventureActionObj.echo,
+                    type: chatventureActionObj.type,
+                    timestamp: new Date(),
+                    agent: thisPlayer.name,
+                    target: null,
+                    icon: thisPlayer.icon,
+                    voice: thisPlayer.voice
+                };
+                allChatventures[thisPlayer.chatventure.id].history.push(chatventureEvent);
+                Object.keys(allChatventures[thisPlayer.chatventure.id].players).forEach(playerName => {
+                    io.to(playerName).emit('chatventure_event', chatventureEvent)
+                });
+                return;
+            }
+            default: {
+                break;
+            }
+        }
+    });
 
     socket.on('chat_action', chatMessageData => {
+        if (thisPlayer?.name == null) return;
         /*
             const newChatAction = {
             echo: chatMessage,
@@ -1769,7 +2267,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('logout', () => {
-        if (thisPlayer == null) return;
+        if (thisPlayer?.name == null) return;
         thisPlayer.following.forEach(soulID => socket.leave(soulID));
         socket.join('Zenithica');
         thisPlayer = undefined;
@@ -1901,7 +2399,7 @@ GameState.findOne({ dateKey: todaysDateKey })
             return server.listen(PORT, () => console.log(`Township Chatventures is loaded and ready to play!`));
         }
     })
-    .catch(err => console.log(`Goodness, failed to load GameState altogether. That can't be good. Welp! Server is offline for now.`));
+    .catch(err => console.log(`Goodness, failed to load GameState altogether. That can't be good. Welp! Server is offline for now. ERROR is `, err));
 
 function loadGame(gameObject) {
     // start all relevant timers for game operation
