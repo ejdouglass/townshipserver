@@ -18,6 +18,9 @@ const io = socketIo(server, {
     }
 });
 
+// let damageScale = {};
+
+
 /*
 
     Quick-construction objects for the Constructor Classes to use... new Item(itemBlueprints.battleaxe, )
@@ -78,6 +81,7 @@ const itemBlueprints = {
         slot: 'hand', icon: {type: 'x'}, equipStats: {def: {flat: 10, amp: {strength: 0.75, vitality: 0.25}}},
         dmgMod: 0.75
     }
+    // add: dagger, club, 
 };
 
 // by tier-key
@@ -120,27 +124,37 @@ const weaponPrefixes = {
     }
 };
 
+/*
+
+spitball material properties:
+METALS: hardness, flexibility, conductivity, workability, resistance, ductility, density
+ALCHEMY: potency, efficacy, solubility, toxicity
+
+and further mod by tier, just 'cuz :P
+
+*/
+
 // let's figure out how MATERIALS work! ... mostly for the purposes of equipment modding
 // and maybe general workability, although for now 'tier' and maybe type can cover that
 const materials = {
     0: {
         copper: {
-            name: 'copper', tier: 0, type: 'metal', meta: 'magical', traits: {hard: 50, flexible: 30, conductive: 60}
+            name: 'copper', tier: 0, type: 'metal', meta: 'magical', traits: {hardness: 50, flexibility: 30, conductivity: 60, workability: 10, resistance: 10, ductility: 10, density: 10}
         },
         bronze: {
-            name: 'bronze', tier: 0, type: 'metal', meta: 'physical', traits: {hard: 60, flexible: 20, conductive: 50}
+            name: 'bronze', tier: 0, type: 'metal', meta: 'physical', traits: {hardness: 60, flexibility: 20, conductivity: 50, workability: 10, resistance: 10, ductility: 10, density: 10}
         },
         leather: {
-            name: 'leather', tier: 0, type: 'leather', meta: 'physical', traits: {hard: 15, flexible: 80, conductive: 40}
+            name: 'leather', tier: 0, type: 'leather', meta: 'physical', traits: {hardness: 15, flexibility: 80, conductivity: 40, workability: 10, resistance: 10, ductility: 10, density: 10}
         },
         pelt: {
-            name: 'pelt', tier: 0, type: 'leather', meta: 'magical', traits: {hard: 10, flexible: 90, conductive: 70}
+            name: 'pelt', tier: 0, type: 'leather', meta: 'magical', traits: {hardness: 10, flexibility: 90, conductivity: 70, workability: 10, resistance: 10, ductility: 10, density: 10}
         },
         pine: {
-            name: 'pine', tier: 0, type: 'wood', meta: 'magical', traits: {hard: 30, flexible: 45, conductive: 60}
+            name: 'pine', tier: 0, type: 'wood', meta: 'magical', traits: {hardness: 30, flexibility: 45, conductivity: 60, workability: 10, resistance: 10, ductility: 10, density: 10}
         }, // may replace with some other wood for 'soft/magical wood' entry
         oak: {
-            name: 'oak', tier: 0, type: 'wood', meta: 'physical', traits: {hard: 40, flexible: 40, conductive: 40}
+            name: 'oak', tier: 0, type: 'wood', meta: 'physical', traits: {hardness: 40, flexibility: 40, conductivity: 40, workability: 10, resistance: 10, ductility: 10, density: 10}
         }
     },
     1: {
@@ -153,6 +167,279 @@ const materials = {
         'rugged leather': {}
     }
 }
+
+const abilityBlueprints = {
+    
+    /*
+
+
+SOME EXAMPLES TO BRAINSTORM THEN BUILD OFF OF
+The main bits are probably name, message, active/passive, type, target, cost, effects
+... message 
+All abilities are considered 'base' and are modified further by prefixes
+Later, maybe prefix synergies can cause special effects/variants
+We can add the rest later, so let's make a few new examples
+... oh, need target info like single/group/side/all, potency as 'base effect' mod e.g. 1.8 for +80%, charge
+... maybe a base accuracy, a base potency, potency mod (1.8 in example above), scaling
+
+can also consider firstPersonMsg, thirdPersonMsg to get properly fancy, and it's not THAT much harder
+messages can also be in an array, defaulting to [0] but scaling up based on skill/"level" of the move
+
+    mightystrike: {
+        name: 'Mighty Strike',
+        firstPersonMsg: [],
+        thirdPersonMsg: [],
+        active: true,
+        type: 'physical',
+        intent: 'attack',
+        target: 'other',
+        aoe: 'single',
+        windup: 0,
+        cooldown: 0,
+        expScale,
+        useScale,
+        effects: {
+            damage: {
+                stat: atk,
+                base: [10], // in an array that's based on SKILL LEVEL with the technique, starting at 0 because indices
+                mod: [1.5],
+                accuracy: [0.85]
+            }
+        }
+    }
+
+    scorch: {origin: 'magical', type: 'spell', meta3: 'active', intent: 'attack', target: 'other', cost: {}, effects: {damage: {scaling: 'willpower', type: 'fire', potency: 1}}},
+    undermine: {origin: 'physical', type: 'tech', meta3: 'active', intent: 'attack', intent2: 'debuff', ...},
+    cover: {origin: 'physical', type: 'tech', meta3: 'active', scaling: 'agility'},
+    steal: {origin: 'physical', type: 'tech', meta3: 'active'},
+    hale: {origin: 'physical', type: 'tech', meta3: 'passive', effects: {}}
+
+    can add extra flags that some abilities/mods/equipment/etc. can check for... other: {draconic: 1}
+
+    newest: all abilities are tied to a Class; it may theoretically be possible to learn and improve an ability without having access to its class? hm
+    ... so potential bufftypes for mods: type, flavor, intent, action
+    abilitykey: {
+        name: 'Name',
+        tier: 123, // modifies the required exp/use scales, as well as the class exp gained from leveling it up
+        active: true || false,
+        type: magical/martial/breath/???,
+        action: spellcast/movement/???,
+        intent: attack/recover/buff/debuff,
+        flavor: '', // vanilla!... no, actually, stuff like element
+        target: self/otherAlly/otherEnemy/otherAny/any/area,
+        aoe: single/group/side/all,
+        windup: [null, 0, ...], // another 10-level array
+        cooldown: [null, 0, ...],
+        class: '', lowercased name of class this ability is associated with
+        exp: {value: 0, level: 0, scale: []}, // upon exp up, check scale[level + 1] vs value, increment if necessary; up to Level 5? 10?
+        use: {value: 0, level 0, scale: []}, // similar to above
+        mods: {}, // mods to the ability applied through use level
+        requirements: {soft: {target: 100, classLevelMods: {fool: 5}, abilityLevelMods: {abilityName: 10}}, hard: {classLevels: {fool: 5}, abilityLevels: {abilityName: 3}}}, // the requirements to learn the ability in the first place!
+        // for requirements, abilityLevels/Mods include both exp AND use cumulatively, so even without exp-leveling you can hit a req to learn a new ability
+        effects: {
+            damage: {
+                stat: atk,
+                base: [null, 10], // in an array that's based on ability's expLevel, with 0 nulled out since we expect everything to be at least level 1
+                mod: [null, 1.5],
+                accuracy: [null, 0.85],
+                vs: 'target' // having this here allows us to iterate through effects and apply concepts such as potential backfire, blowback, and other side effects
+            },
+            effectTypeX: {
+                ...
+            }
+        }        
+        use(agent, target)  {
+            // can include roomContextData as a param, OR bake it into an expanded locationData for the agent & target
+            // grab them refs and MUTATE
+            // ALSO, include any prefix synergies in here, too! ... any special effects above and beyond the base effect of prefixes
+            let firstPersonMsg = [`You do the thing to ${target.name}`];
+            let thirdPersonMsg = [`${agent.name} does the thing to ${target.name}`];
+            // this.use.value += 1; // possibly, we can apply mods based on user's stats, the exp.level of this, or agent aptitudes?
+            // we haven't defined aptitudes yet, though, so... just a 'maybe' concept for later
+            return;
+        },
+        checkForLevelUp(type) {
+            // can check for type === 'exp' || 'use' ... and if neither is present, check both?
+        },
+        prefixes: {}, // no specific prefixLoad limit, but costs are amped exponentially
+        prefixing() {
+            // here: checks for applied prefixes and renames the ability accordingly, if applicable
+        }
+    }
+
+
+
+    
+
+    Back to attack design, redux
+
+    some basic parameters can be added to each ability cumulatively, and then they can magnify further
+
+    TYPING: 
+
+    ask first, what can we modify? CHAIN MODS, YO
+    potency: {all: 0, martial: 0, magical: 0}
+    speed: {all: 0, martial: 0, magical: 0}
+    potency, speed
+
+    so we can tally up the types, actions, intents, AND flavor to provide auto-amps to both potency AND cost (the exhaustion of doing the same thing over again)
+    ... cumulatively in a way that the 'previous one' changes the momentum the most, with COST scaling faster than POTENCY
+    ... thus, to conserve on resources, having 
+
+    that way, some moves can be specifically designed to AMP! woo!
+
+    we can have auto-amp elements and discrete amp elements
+    
+    
+
+    */
+   //MHRattack
+    
+   
+    huskSwat: {
+        name: 'husk swat', tier: 1, active: true, type: 'martial', action: 'movement', intent: 'attack', flavor: 'basic', target: 'otherFaction', aoe: 'single',
+        windup: 0, cooldown: 500, mpCost: 0, eqlCost: 20, class: 'none', effects: {damage: {base: 1, potency: 1, flavor: 'basic'}},
+        message: `wildly swipes a meaty paw at`,
+        // how to handle messaging in this case?? hmmmmm... we couuuuuld init the skill on an agent to init the messaging for it, then delete the messagingInit fxn?
+        // well, for now, let's just go generic and fill in the finer details later
+        // we can also think through all possible EFFECTS to hook into useAbility, but for now, effects.damage {base, potency, flavor} will be accounted for
+
+        prepare(agent) {
+            // for any windup
+            if (this.windup === 0) this.use(agent);
+        },
+        use(agent) {
+            // fascinating! THIS refers to this entire defined object, including fxn
+
+            // anyway, check their actionIndex and actionQueue to start tallying
+            // NOTE: it's certainly possible the actionQueue/actionIndex will have nulled out by the time this function is called
+            // oh, let's test setTimeout and clearTimeout shenanigans, one sec
+            let damage = this.effects.damage.base;
+            damage += Math.floor(Math.sqrt(agent.stats.atk));
+            let potency = this.effects.damage.potency;
+            let baseReduction = 0;
+            console.log(`${agent.name} claws wildly at ${agent.playStack.target.name}!`);
+            agent.eql -= 100;
+            agent.playStack.target.ouch({hpDamage: damage});
+
+            // SOMEWHERE: exp up, if entityType === 'player'
+
+            // SOMEWHERE: increment actionIndex by 1
+            return;
+        }
+    },
+    huskHeal: {
+
+    },
+    strike: {
+        simplename: 'attack', tier: 1, active: true, type: 'martial', action: 'movement', intent: 'attack', flavor: 'basic', target: 'otherEnemy', aoe: 'single', 
+        windup: 0,
+        cooldown: 500,
+        class: 'none',
+        effects: {damage: {base: 5, potency: 1}},
+
+        use(agent, target) {
+            // FIRSTS FIRST: check to ensure the target is still 'available'... in the battle, visible to the attacker, etc.
+            // SECONDS SECOND: ensure the attacker can do this move and isn't under any status that would preclude it
+            // HM THIRD: currently testing if we can just attach use() to these declarations and run logic through them that way
+            //      if so, we can just reference the agent as the calling agent object, OR re-bind the this()
+            //  'worst' case we can just pass in the agent and use their agent.playStack.target information, which we'll try first
+
+            // we'll have access to the agent's actionQueue and actionIndex to help modify from, ezpz lemon squee-z
+
+            // huh, can I just 'copy' the function stuff to a given agent and have them USE stuff? fascinating, let's try it
+
+            // at some point, we need to consider the dmgMod on the user's weapon(s)
+
+            let baseDamage = 5;
+            let baseReduction = 0;
+            let potency = 1;
+            let eqlCost = 100;
+            let damageObject = {
+                hpDamage: 0,
+                mpDamage: 0,
+                // moar damage in the future? ... maybe!
+                // can also potentially add debuffs... ouch can be any injury
+                // oh, maybe anti-ouch function?... basically the opposite of an attack effect? ...hrmmrmrm
+            };
+
+
+
+            /*
+            
+            take balance and focus into consideration, where applicable, and also bonus/decrement each
+                - idea: weaponMods that allow you to build focus on martial type movements, balance on casts, etc.
+            
+            so we need to know the 'effective level' of the agent's att vs target's def
+
+            mod by balance... oh snap, gotta add balance
+            BALANCE SPITBALLING... let's figure that one out, eh? 
+
+            for now, though
+            
+            
+            BELOW:
+            - handle the io.to information
+            - call ouch(damageObject, source) on e'erbody
+            - figure out damage messaging
+            
+            */
+
+            // good enough for now
+            let actionEcho = `${agent.name} strikes ferociously at ${target.name}, dealing ${damageObject.hpDamage} damage!`;
+
+            // to figure out where to shoot the ECHO to, io and history wise, we need the chatventure AND event ids
+            // so, we need to attach battle: {id: 9999} to the playStack of everyone involved when battle starts so we're good to go there
+          
+            // doopty
+            // woopty
+        }
+    },
+    evoke: {},
+    flee: {},
+    'Flamebolt': {
+        simplename: "Flamebolt", tier: 1, active: true, type: 'magical', action: 'spellcast', intent: 'attack', flavor: 'fire', target: 'other', aoe: 'single',
+        windup: [null, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500], // relative time
+        cooldown: [null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // absolute time
+        class: 'mage',
+        effects: {
+            damage: {bonus: 20, magnitude: 2, flavor: 'fire', stat: 'mag', vs: 'res', target: 'target'}
+        }, // rejigger as shorthand descriptor/skill card preview info builder since actual use parameters are gonna live in use() now
+
+        use(agent, target) {
+            // all actual effects and prefix-checking goes here
+            /*
+
+            HMMMM: what to do if the target is prefixed into multi-target?
+            - well, we COULD just call the initial use() many times, but the output of that could get pretty wild
+            - maybe more ideally we can do a typeof on target and split depending on that
+            - or we could always assume target is an array
+            - oh, looks like typeof does OBJECT for both {} and [], so can use Array.isArray(VAR) to get a true/false on that
+            
+            Our first ability! We want USE() to:
+            - calculate all damage done and the total result of all hp/mp/etc. exchanges/changes
+            - apply those changes to the agent
+            - io.to @ chatventure channel of agent (assuming that any interested parties will see it via that) with 1st/2nd/3rd person messaging
+            - send the 'eventResultObject' to the chatventure to parse
+            
+            */
+            // what we want to do here is figure out all the calcs for damage done, throw the result of this action into the chatventure
+        },
+        levelUp(agent) {},
+        expScale: [null, 0], useScale: [null, 0]
+    },
+    'Zephyr': {
+        simplename: "Zephyr", tier: 1, active: true, type: 'magical', action: 'spellcast', intent: 'recover', flavor: 'wind', target: 'any', aoe: 'group',
+        windup: [null, 1000], // hm, maybe it'd be more reasonable to have a 'scaling' object and just pass the level into that?
+        cooldown: [null, 0],
+        class: 'sympath',
+        effects: {},
+
+        use(agent, target) {},
+        levelUp(agent) {},
+        expScale: [null, 0], useScale: [null, 0], powerScale: [null, {}]
+    }
+};
 
 // IDEA: upon server startup, define an array of allWeaponBlueprints, allSwordBlueprints, etc. for mob/shop/etc spawning purposes
 // would be even better if we could define 'tiers' of equipment, or levels on the equipment, and roll from there as well
@@ -202,6 +489,7 @@ const materials = {
     mass, materials/construction (ref?), 
 
 */
+
 class Item {
     constructor(blueprint) {
         this.type = blueprint.type;
@@ -307,7 +595,7 @@ function equip(agent, ...items) {
 function equipOne(agent, item, slot) {
     // items need ids. they just do. :P
     if (agent.equipment[slot] != null) {
-        // something is equipment there! remove it! ... o snap we can't just do it this way, we need to UNEQUIP it
+        // something is equipped there! remove it! ... o snap we can't just do it this way, we need to UNEQUIP it
         unequip(agent, slot);
     }
     if (item.name === null) return agent.equipment[slot] = null;
@@ -674,6 +962,16 @@ class Mob {
         this.entityType = blueprint.entityType;
         this.id = generateRandomID(this.entityType);
         this.inventory = blueprint.inventory || [];
+        this.playStack = {
+            gps: 'Zenithica', // note that we'll have to change this gps data, but we don't quite initialize location data properly yet
+            nickname: 'Zenithica',
+            target: null, 
+            chatventure: null,
+            mode: '', // hm... this cooooould be a good hook for dictating ai behavior
+            at: 'none',
+            data: {},
+            battle: null
+        }
         this.chatventureID = null;
         this.currentChatventureEventID = null; // which 'event' they're currently living in, such as a battle or menu?
         this.soulHome = null;
@@ -694,13 +992,414 @@ class Mob {
         // could use blueprintRef @ mobBlueprints to help roll up level-appropriate data/abilities/stats/equipment/etc.
         // probably should include some param(s) to help init chatventureID for mobs, location information for NPCs?
         // can pull together a calcStats fxn for players and mobs alike, apply it here
-        // console.log(`A new mob has spawned! Looks like this: `, this);
+        console.log(`A new mob has spawned! Looks like this: `, this);
+
     }
     actOut() {
         // or could call this WAKE, but start behavior timeout
     }
 }
 // let Bob = new Mob(mobBlueprints.husk).init();
+
+
+class HuskMob {
+    constructor() {
+        // MHRhusk
+        this.name = `a mindless Husk`;
+        this.level = 1; // keep for now; some mobs can have a 'minimum level' specified
+        this.entityType = 'mob';
+        this.id = generateRandomID('huskmob');
+        this.inventory = [];
+        this.playStack = {
+            gps: 'Zenithica', // note that we'll have to change this gps data, but we don't quite initialize location data properly yet
+            nickname: 'Zenithica',
+            target: null, 
+            chatventure: null,
+            mode: 'test2', // hm... this cooooould be a good hook for dictating ai behavior
+            at: 'none',
+            data: {},
+            battle: null
+        };
+        this.eql = 100;
+        this.chatventureID = null;
+        this.abilities = {};
+        this.abilityBar = [];
+        this.actionQueue = [];
+        this.actionIndex = null;
+        this.currentAction = null;
+        this.chainDeadline = null;
+        this.faction = 'enemy'; // dead simple, but gets the job done for now!
+        this.soulHome = null;
+        this.wallet = 0;
+        this.stealInventory = []; // will likely refactor
+        this.stealFlags = 0;
+        this.heat = {total: 0, average: 0}; // targeting weighting will go here
+        this.loot = {
+            skins: null,
+            treasure: null,
+            wallet: 0
+        }; // gotta figure out how to handle loot mechanics
+        this.equipment = {rightHand: null, leftHand: null, head: null, body: null, accessory: null, trinket: null};
+        this.stats = {strength: 10, agility: 10, vitality: 10, willpower: 10, intelligence: 10, wisdom: 10, atk: 10, def: 10, mag: 10, res: 10, spd: 10, hpmax: 50, hp: 50, mpmax: 50, mp: 50}; // 'base' stats
+        this.balance = 0;
+        this.focus = 0;
+        this.ai = {}; // ai for behavioral possibilities
+        this.plan = {}; // backup for timeout actions for re-init/server restore
+        this.flags = {}; // for any specific but esoteric actions
+    }
+
+
+
+    place(playStack) {
+        // receive a playstack, probably cheerfully copied from initializing player :P
+        // this should provide sufficient information for the entity to start acting out properly, when that functionality is called
+        this.playStack = JSON.parse(JSON.stringify(playStack));
+        this.playStack.mode = 'battle';
+        
+    }
+
+
+
+    init(level) {
+        // based on level, equip, give abilities, and what have you
+        // certainly they should have the ability to attack, at least :P
+        this.level = level;
+
+        // HERE: based on init level, decide which 'type' of Husk we can generate, if they have special skills or ai, equipment potential, maybe loot stuff, etc.
+        // for now, though?... just a thing to whack around, so let's just keep it mindless and fairly ai-free until we're ready to test more capabilities
+
+        // grab strike, evoke, flee?
+        this.abilities = {};
+        // this.abilities['strike'] = abilityBlueprints['strike'];
+        // this.abilityBar.push(abilityBlueprints['strike']);
+        this.abilities['huskSwat'] = abilityBlueprints['huskSwat'];
+        this.abilityBar.push(abilityBlueprints['huskSwat']);
+
+        // determine chance of spawning with gear based on level and RNG
+        // ideally, we should change the stat allocation to be 'weighted,' as well as subdivide per 'type'... the mindless ones shouldn't have high intelligence,
+        //  nor should they have a super high chance to roll more :P
+        const statBoostRefArray = ['strength', 'agility', 'vitality', 'willpower', 'intelligence', 'wisdom'];
+        const statWeightArray = [30,20,30,10,5,5];
+        const statWeightTotal = statWeightArray.reduce((prev, current) => prev + current, 0);
+
+        // actually, let's take out the loop and just do a quick static stat dump, minus the 'initial assignment' :P
+        for (let x = 10; x--; x > 0) {
+            this.stats[statBoostRefArray[rando(0,5)]] += 1;
+        }
+
+        statBoostRefArray.forEach((statKey, index) => {
+            this.stats[statKey] += Math.floor(statWeightArray[index] / statWeightTotal * level);
+        });
+
+        this.stats.hpmax = Math.floor(30 + (this.stats.vitality * 2));
+        this.stats.hp = this.stats.hpmax;
+        this.stats.mpmax = Math.floor(30 + (this.stats.wisdom * 2));
+        this.stats.mp = this.stats.mpmax;
+        this.stats.atk = Math.floor(1 + (this.stats.strength * 0.5 + this.stats.agility * 0.5));
+        this.stats.def = Math.floor(1 + (this.stats.vitality * 0.5 + this.stats.agility * 0.5));
+        this.stats.mag = Math.floor(1 + (this.stats.willpower * 0.5 + this.stats.intelligence * 0.5));
+        this.stats.res = Math.floor(1 + (this.stats.wisdom * 0.5 + this.stats.intelligence * 0.5));
+        equipOne(this, new Item(itemBlueprints.rags), 'body');
+
+        // somewhere around here... possible auto-mutate potential? sometimes, you just get a freaky mob :P
+
+
+        console.log(`I gained stats! Look at me now, ma: `, this);
+        return this;
+    }
+
+
+
+    mutate(type) {
+        // THIS: be able to make something a Boss, Elite, Huge, whatever else, amending its properties accordingly
+        console.log(`${this.name} is attempting to mutate!`);
+        return this;
+    }
+
+
+
+    actOut() {
+        // should probably 'initialize' heat values? ... well, the Husk may be too 'simple' to worry about that, for now
+        if (this.playStack.target == null) {
+            this.playStack.target = this;
+            console.log(`${this.name} appears enraged and confused! Watch out!`);
+        }
+        
+        switch (this.playStack.mode) {
+            case 'test2': {
+// MHRhuskattacktest2
+                // so far, so good! ... now to refactor with the idea of 'chaining,' cooldown, as well as actionQueue shenanigans
+
+                /*
+                
+                    this.currentAction can be the timeout FXN for the thing we're currently doing, and will go through prepare() and use(), I imagine
+                    everyone has a currentAction now, hurrah. now then!
+                    
+
+                    so upon INPUT of some sort we go from abilityIndex -1 to 0 (if we're not already going) and begin using prepareAbility(agent)
+                    currentAction is set by the prepareAbility using the cooldown information, modified by whatever in the actionQueue
+
+                    mobs are a little different in that their ai might conveniently dictate a chain of moves all at once (like players can), rather than 'deciding' on the fly
+                    
+                    still gotta figure out how to handle cooldown/end of queue/delay mechanics for chain input...
+
+                    OK
+                    so you input a command, it's got at least a minimum cooldown
+                    the code groks it and exectures prepare(), immediately into use(), then onward
+
+                    OK new chainDeadline kind of variable with a timestamp equal to plus 3 seconds after last command's cooldown
+                    ... a little clunky but whatever, let's give it a go :P
+                    SO, on every action USE we need to check to see if we're at the end of the actionQueue, and if so, ohhhh
+                        ok, so if we have a new FXN whose job it is just to hit deadline, we're good
+                        let's go to useAction and ponder further
+                    and on every action INPUT we need to null the chainDeadline
+
+                */
+
+                
+                if (this.actionQueue.length === 0) {
+                    let numberOfActions = rando(3, 5);
+                    console.log(`The husk prepares ${numberOfActions} attacks...`);
+                    for (let i = 1; i <= numberOfActions; i++) {
+                        // set up whack-a-self
+                        // note that we're cheerfully just setting everything to our single attack with no nuance whatsoever at this stage
+                        this.actionQueue[i - 1] = this.abilityBar[0];
+                        // setTimeout(() => this.actOut(), i * 1500);
+                    }
+                    this.actionIndex = 0;
+                    prepareAbility(this);
+                    return this;
+                }
+
+                // sooooo ideally right now what we'll see is the husk whacking itself 3-5 times and then not doing anything anymore :P
+
+                // NOTE: currently I expect that, not calling actOut again once I get this started with PREPARE, we'll just hang after the first barrage
+                // one solution would be to check entityType at various 'end result' scenarios (all should probably funnel into recoverEql unless dead)
+                //      if !== 'player', then fire up actOut() real quick at that step
+                // another solution is to have actOut fire periodically to self-monitor, which could lead to more dynamic behavior but higher fxn load back here
+
+                return;
+
+
+
+                // if we got here, we've got actionQueue items lined up!
+                // OK! 
+                
+                // this.abilityBar[0].use(this);
+                this.actionQueue[this.actionIndex].use(this);
+                this.actionIndex += 1;
+
+                // this.actionQueue.shift();
+                // HERE: if actionQueue is depleted, set a new timeOut equal to eql recovery needed
+                if (this.actionQueue[this.actionIndex + 1] == null) {
+                    console.log(`${this.name} is all tuckered out. It quaffs a healing potion and recovers ${this.stats.hpmax - this.stats.hp} HP!`);
+                    this.stats.hp = this.stats.hpmax;
+                    this.actionIndex = 0;
+                    this.actionQueue = [];
+                    setTimeout(() => this.actOut(), (1000 - this.eql) * 10);
+                }
+
+                return this;
+            }
+
+
+            case 'test': {
+                // let's consume the ACTION QUEUE slots!
+                let numberOfActions = 0;
+
+                // nothing planned, set up an ASSAULT BARRAGE of 1-5 actions 
+                if (this.actionQueue.length === 0) {
+                    console.log(`${this.name} suddenly looks ferocious, but can't find anyone else to attack, so begins to stomp around wildly!`);
+                    numberOfActions = rando(1, 5);
+                    for (let i = 1; i <= numberOfActions; i++) {
+                        // set up whack-a-self
+                        // hm, maybe eqlDebt can also be a positive modifier, accentuating effects by driving hard at a target?
+                        this.actionQueue[i - 1] = 'bonk';
+                        setTimeout(() => this.actOut(), i * 1500);
+                    }
+                    return this;
+                }
+
+                // this.eql -= 50;
+                // this.eqlDebt = {...this.eqlDebt, balance: this.eqlDebt.balance -= 1, last: new Date()};                
+
+                // we arrived here and this.actionQueue has some BONKS in it! let's bonk ourselves!
+
+
+                console.log(`${this.name} hurt itself in its confusion!`);
+                this.eql -= 15;
+                this.ouch({hpDamage: rando(5,10)});
+                this.actionQueue.shift();
+                // HERE: if actionQueue is depleted, set a new timeOut equal to eql recovery needed
+                if (this.actionQueue.length === 0) {
+                    console.log(`${this.name} is all tuckered out. It quaffs an elixir and recovers ${this.stats.hpmax - this.stats.hp} HP!`);
+                    this.stats.hp = this.stats.hpmax;
+                    setTimeout(() => this.actOut(), (1000 - this.eql) * 10);
+                }
+                
+                return this;
+            }
+
+
+            case 'chill': {
+                break;
+            }
+
+
+            case 'battle': {
+                if (this.playStack.battle?.id != null) {
+                    // seek a target amongst factions: 'zenithican' in chatventure.events[battleEventID].factions.zenithican
+                }
+                break;
+            }
+
+
+            default: {
+                break;
+            };
+        }
+    }
+
+    ouch(damageObject, source) {
+        // hm let's go back and do m-att first to determine what our damageObject ends up looking like first...
+        this.stats.hp -= damageObject.hpDamage;
+        if (this.stats.hp <= 0) this.ded();
+        console.log(`${this.name} took a hit for ${damageObject.hpDamage} and is now at ${this.stats.hp} HP!`);
+        return this;
+    }
+
+    ded(cause) {
+        // should clear the actionQueue, io.to every player involved, and then hang out until either status changes OR existence is cleared by other means
+    }
+}
+
+const Joe = new HuskMob().init(20).actOut();
+// INTERESTING! ... so in order to CHAIN, each stage of the chain of functions needs to return THIS
+// that makes sense, now that I reflect on it. Neat!
+
+function handleAbilityInput(agent) {
+    // THIS: player entered a command to do a thing -- how should we get that ball rolling?
+    // if we're already doing stuff, add it to the list
+    // if we're NOT doing a thing, get the thing(s) started
+
+    // not sure yet if it makes any sense to apply this to npc/mob actions, or just have them actOut wildly, or both
+    if (agent.actionIndex < 0) {
+        console.log(`STILL RECOVERING EQL, CANNAE DO A THING, BARGLEBONGLE`);
+    }
+}
+
+function prepareAbility(agent) {
+    // send any io echoes, fire up the agent.currentAction timeout appropriately to USE upon
+    /*
+    
+        Doopty whoopty... let's see now...
+        we should have actionIndex set to the proper spot by now, right? let's say aye-sir, we call this prepareAbility AFTER we're set to go, autopilot from there
+        sooooo check the agent.actionQueue[agent.actionIndex].windup, set a timeOut for that in agent.currentAction
+
+        finalmente, in order to useAbility, we need to make sure it has everything 'in' it that a useAbility can get itself sorted...
+        
+        for now, we're ignoring agent.currentAbility; we may reintegrate the concept a bit later, after some testing here
+            - the MAIN reason I wanted it in the first place was so I could clearTimeout @ it if a "cancelling effect" came in
+            - we can approximate the same effect through a complex series of checks at every step here, buuuuuuuuuuuut
+            - yeah, no, let's use agent.currentAbility = setTimeout(...) after testing this first flow setup
+        
+    */
+
+    let ability = agent.actionQueue[agent.actionIndex];
+    // FOR TESTING, we'll just use console.log here before we worry about io.to(e'erbody)
+    console.log(`${agent.name} is preparing to use ${ability.name}!`);
+    if (ability.windup === 0) return useAbility(agent);
+    return setTimeout(() => useAbility(agent), ability.windup);
+}
+
+function useAbility(agent) {
+    let ability = agent.actionQueue[agent.actionIndex];
+    let resultObject = {hpDamage: 0, mpDamage: 0};
+    // make sure agent is still in a condition to USE after any windup, and thennnnn...
+    /*
+    
+        type: 'martial', action: 'movement', intent: 'attack', flavor: 'basic', effects: {damage: {base: 1, potency: 1, flavor: 'basic'}}
+        also message: ``, just insert the agent before and target after, ezpz for now
+    
+    */
+    // IF we hit an "oopsie cannot continue with actions" error that's substantial enough (too little eql, now dead or asleep, etc.)...
+    //  ... reset actionIndex to null, for starters... OR we could do actionIndex as -1 if we're 'broken' and HAVE to chill out
+    // intitiate a recoverEql timeout scenario
+    // after we're done, chain to cooldownAbility()    
+    if (agent.stats.hp <= 0) {
+        return console.log(`Welp ${agent.name} can't do much in this state due to being dead. Whoopsie. Blep.`);
+    }
+
+    if (agent.eql <= ability.eqlCost) {
+        return console.log(`EQL too low! ${agent.name[0].toUpperCase()}${agent.substring(1)} falls over and cannot continue their actions.`);
+    }
+
+    // add more conditions above as we go, but below, we'll assume we're GOOD, let's rock!
+
+    // HERE: add up previous queue momentum... in a bit
+
+    // HERE: call damage calculation functions, if applicable; also, define said fxns in a bit
+    if (ability.effects.damage != null) {
+        // placeholder damage until we have an actual calculation baked in
+        resultObject.hpDamage = rando(5,15);
+    }
+
+    let actionMessage = `${agent.name[0].toUpperCase()}${agent.name.substring(1)} ${ability.message} ${agent.playStack.target.name}, hitting for ${resultObject.hpDamage} damage!`;
+
+    console.log(actionMessage);
+    return setTimeout(() => cooldownAbility(agent), ability.cooldown);
+}
+
+function cooldownAbility(agent) {
+    /*
+    
+        HERE: 
+        ... ok, so currentAction is the timeout that is set by these functions (well, it WILL be)
+            - is there another ability waiting next in the queue?
+                - YEP: increment actionIndex and PREPARE via the 'new' action
+                - NAH: well, cooldown is all done, so currentAction should be set to chainCooldown for 3000
+    
+    */
+
+    // hrm
+    if (agent.actionQueue[agent.actionIndex + 1] != null) {
+        // CASE: we have a new move coming up!
+        agent.actionIndex += 1;
+        prepareAbility(agent);
+    } else {
+        // CASE: no currently planned 'next move,' so use chainCooldown to await the next possible action
+        return setTimeout(() => chainCooldown(agent), 3000);
+    }
+}
+
+
+function chainCooldown(agent) {
+    // if there's no new index entry, RESET - null activityIndex, [] out activityQueue, and currentAction is a timeout of recoverEql
+    // final check... 
+    if (agent.actionQueue[agent.actionIndex + 1] == null) {
+        // CASE: no action planned, we've expired our 'chance' to keep chaining
+        return recoverEql(agent);
+    } else {
+        // CASE: oh hi, something IS now planned, so let's get on that!
+        agent.actionIndex += 1;
+        prepareAbility(agent);
+    }
+}
+
+function recoverEql(agent) {
+    // gotta take a breather, y'know - when this function resolves, WOO! EQL to 100!
+    // can also check for activityQueue and start it all over again if there are commands awaiting us post-recovery
+    // I actually don't have a model for EQL recovery yet... could be based on speed, stats, remaining EQL, what have you
+    // but for now, FIVE SECONDS IN THE PENALTY BOX :P
+    agent.actionIndex = -1; // this'll be our shorthand for OUTTA COMMISSION FOR NOW
+    agent.actionQueue = [];
+    setTimeout(() => {
+        agent.actionIndex = null;
+        agent.eql = 100;
+    }, 5000);
+}
+
+
 
 // what can ya build? how can ya build it? what does it do? 
 /*
@@ -713,7 +1412,7 @@ Constructing some structing
 
 BRAINSTORM:
 Many of the below can be constructed in various ways, such as a blacksmith tent or blacksmith cabin; class-buildings are likely an exception due to their nature
-[o] Construction Types: tent/hut/shack, cabin/house, building/shop, hall
+[o] Construction Types: tent/hut/shack, cabin/house, building/shop, hall... eh, or have it be specific to each, that's fine/maybe preferable
 - tavern
 - den (rogue)
 - barracks (fighter)
@@ -721,6 +1420,7 @@ Many of the below can be constructed in various ways, such as a blacksmith tent 
 - tower (mage)
 - foolplace (only there in minstats scenario)
 - general store
+- tradehall / starter get-any-materials with no specificity
 - lumberjack
 - mining
 - blacksmith
@@ -730,6 +1430,7 @@ Many of the below can be constructed in various ways, such as a blacksmith tent 
 - stables
 - townhall
 - training yard
+- 
 
 so what do we need to know about structs?
     generatedRandomID or fixed name, depending: {
@@ -750,6 +1451,7 @@ so what do we need to know about structs?
     NOTE: we can include 'extra' stuff the Class does NOT inherit here, such as special methods for naming, upgrade/level data, etc.
     ... and we can further play with method inheritance, if we're feeling especially spunky for future struct permutation
 
+
 */
 const structBlueprints = {
     'nexus': {
@@ -757,6 +1459,7 @@ const structBlueprints = {
         description: 'A jagged crownlike blossom of translucent blue crystal, standing twice the height of a tall man, that acts as the heart of the township.',
         innerDescription: 'How did you even get IN here? Crystals! Crystals everywhere!',
         level: 1, interactions: {nexus: 'nexus'}, icon: {}, gps: {}, dimensions: {x: 1, y: 1, z: 1}, 
+        weight: 0,
         construction: {hub: {crystalline: 100, complexity: 500}},
         boosts: {township: {}, player: {}},
         inventory: {construction: {}},
@@ -1131,160 +1834,6 @@ TINKER
 */
 
 
-/*
-
-SOME EXAMPLES TO BRAINSTORM THEN BUILD OFF OF
-The main bits are probably name, message, active/passive, type, target, cost, effects
-... message 
-All abilities are considered 'base' and are modified further by prefixes
-Later, maybe prefix synergies can cause special effects/variants
-We can add the rest later, so let's make a few new examples
-... oh, need target info like single/group/side/all, potency as 'base effect' mod e.g. 1.8 for +80%, charge
-... maybe a base accuracy, a base potency, potency mod (1.8 in example above), scaling
-
-can also consider firstPersonMsg, thirdPersonMsg to get properly fancy, and it's not THAT much harder
-messages can also be in an array, defaulting to [0] but scaling up based on skill/"level" of the move
-
-    mightystrike: {
-        name: 'Mighty Strike',
-        firstPersonMsg: [],
-        thirdPersonMsg: [],
-        active: true,
-        type: 'physical',
-        intent: 'attack',
-        target: 'other',
-        aoe: 'single',
-        windup: 0,
-        cooldown: 0,
-        expScale,
-        useScale,
-        effects: {
-            damage: {
-                stat: atk,
-                base: [10], // in an array that's based on SKILL LEVEL with the technique, starting at 0 because indices
-                mod: [1.5],
-                accuracy: [0.85]
-            }
-        }
-    }
-
-    scorch: {origin: 'magical', type: 'spell', meta3: 'active', intent: 'attack', target: 'other', cost: {}, effects: {damage: {scaling: 'willpower', type: 'fire', potency: 1}}},
-    undermine: {origin: 'physical', type: 'tech', meta3: 'active', intent: 'attack', intent2: 'debuff', ...},
-    cover: {origin: 'physical', type: 'tech', meta3: 'active', scaling: 'agility'},
-    steal: {origin: 'physical', type: 'tech', meta3: 'active'},
-    hale: {origin: 'physical', type: 'tech', meta3: 'passive', effects: {}}
-
-    can add extra flags that some abilities/mods/equipment/etc. can check for... other: {draconic: 1}
-
-    newest: all abilities are tied to a Class; it may theoretically be possible to learn and improve an ability without having access to its class? hm
-    ... so potential bufftypes for mods: type, flavor, intent, action
-    abilitykey: {
-        name: 'Name',
-        tier: 123, // modifies the required exp/use scales, as well as the class exp gained from leveling it up
-        active: true || false,
-        type: magical/martial/breath/???,
-        flavor: '', // vanilla!... no, actually, stuff like element
-        intent: attack/recover/buff/debuff,
-        target: self/other/any/area,
-        aoe: single/group/side/all,
-        action: spellcast/movement/???,
-        windup: [null, 0, ...], // another 10-level array
-        cooldown: [null, 0, ...],
-        class: '', lowercased name of class this ability is associated with
-        exp: {value: 0, level: 0, scale: []}, // upon exp up, check scale[level + 1] vs value, increment if necessary; up to Level 5? 10?
-        use: {value: 0, level 0, scale: []}, // similar to above
-        mods: {}, // mods to the ability applied through use level
-        requirements: {soft: {target: 100, classLevelMods: {fool: 5}, abilityLevelMods: {abilityName: 10}}, hard: {classLevels: {fool: 5}, abilityLevels: {abilityName: 3}}}, // the requirements to learn the ability in the first place!
-        // for requirements, abilityLevels/Mods include both exp AND use cumulatively, so even without exp-leveling you can hit a req to learn a new ability
-        effects: {
-            damage: {
-                stat: atk,
-                base: [null, 10], // in an array that's based on ability's expLevel, with 0 nulled out since we expect everything to be at least level 1
-                mod: [null, 1.5],
-                accuracy: [null, 0.85],
-                vs: 'target' // having this here allows us to iterate through effects and apply concepts such as potential backfire, blowback, and other side effects
-            },
-            effectTypeX: {
-                ...
-            }
-        }        
-        use(agent, target)  {
-            // can include roomContextData as a param, OR bake it into an expanded locationData for the agent & target
-            // grab them refs and MUTATE
-            // ALSO, include any prefix synergies in here, too! ... any special effects above and beyond the base effect of prefixes
-            let firstPersonMsg = [`You do the thing to ${target.name}`];
-            let thirdPersonMsg = [`${agent.name} does the thing to ${target.name}`];
-            // this.use.value += 1; // possibly, we can apply mods based on user's stats, the exp.level of this, or agent aptitudes?
-            // we haven't defined aptitudes yet, though, so... just a 'maybe' concept for later
-            return;
-        },
-        checkForLevelUp(type) {
-            // can check for type === 'exp' || 'use' ... and if neither is present, check both?
-        },
-        prefixes: {}, // no specific prefixLoad limit, but costs are amped exponentially
-        prefixing() {
-            // here: checks for applied prefixes and renames the ability accordingly, if applicable
-        }
-    }
-
-*/
-
-const abilityBlueprints = {
-    /*
-    
-    FIRECAST THOUGHTS
-    - the windup/charge for this one... what number(s) make sense here depend GREATLY on how we define the length of a normal turn
-    - the 'castTime' has to be a smart investment somehow; it has to be more useful than just spamming 'attack' over and over in the same time frame in almost all cases
-    - so take a little time to figure that out now-ish
-    TIMING!
-    turns occur at 500 'charge,' 50 + speed is base, woo
-    
-    abilities can 'charge' faster than default turns depending on type; 'abilityCharge' setups should ideally take into consideration boosts to, say, casting speed
-    
-    */
-    'Flamebolt': {
-        simplename: "Flamebolt", tier: 1, active: true, type: 'magical', action: 'spellcast', intent: 'attack', flavor: 'fire', target: 'other', aoe: 'single',
-        windup: [null, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500], // relative time
-        cooldown: [null, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // absolute time
-        class: 'mage',
-        effects: {
-            damage: {bonus: 20, magnitude: 2, flavor: 'fire', stat: 'mag', vs: 'res', target: 'target'}
-        }, // rejigger as shorthand descriptor/skill card preview info builder since actual use parameters are gonna live in use() now
-
-        use(agent, target) {
-            // all actual effects and prefix-checking goes here
-            /*
-
-            HMMMM: what to do if the target is prefixed into multi-target?
-            - well, we COULD just call the initial use() many times, but the output of that could get pretty wild
-            - maybe more ideally we can do a typeof on target and split depending on that
-            - or we could always assume target is an array
-            - oh, looks like typeof does OBJECT for both {} and [], so can use Array.isArray(VAR) to get a true/false on that
-            
-            Our first ability! We want USE() to:
-            - calculate all damage done and the total result of all hp/mp/etc. exchanges/changes
-            - apply those changes to the agent
-            - io.to @ chatventure channel of agent (assuming that any interested parties will see it via that) with 1st/2nd/3rd person messaging
-            - send the 'eventResultObject' to the chatventure to parse
-            
-            */
-            // what we want to do here is figure out all the calcs for damage done, throw the result of this action into the chatventure
-        },
-        levelUp(agent) {},
-        expScale: [null, 0], useScale: [null, 0]
-    },
-    'Zephyr': {
-        simplename: "Zephyr", tier: 1, active: true, type: 'magical', action: 'spellcast', intent: 'recover', flavor: 'wind', target: 'any', aoe: 'group',
-        windup: [null, 1000], // hm, maybe it'd be more reasonable to have a 'scaling' object and just pass the level into that?
-        cooldown: [null, 0],
-        class: 'sympath',
-        effects: {},
-
-        use(agent, target) {},
-        levelUp(agent) {},
-        expScale: [null, 0], useScale: [null, 0], powerScale: [null, {}]
-    }
-};
 
 class Ability {
     constructor(blueprint) {
@@ -1624,13 +2173,13 @@ io.on('connection', (socket) => {
                 {
                     history: [],
                     participants: {
-                        nameOrIdKey: entityRef
+                        nameOrIdKey: entityRef // this is for super ease of targeting
                     },
                     factions: {
-                        'zenithican': {},
+                        'zenithican': {}, // and THIS is for determining win/loss and who 'belongs' to who
                         'enemy': {}
                     },
-                    parties: {},
+                    parties: {}, // and finally, grouping data, although we can implement that quite a bit later for now
                     
                 }
 
@@ -1639,16 +2188,23 @@ io.on('connection', (socket) => {
 
                 for now, it's 1v1, so make sure that works before adding additional considerations and logistical load
                 
-                we can keep the event's prompt, type, id, and mobData
-                redefine prompt content, redefine type to battle
-                delete menuItems
-                add battleData
+
 
                 SUMMARY:
-                need to set up the player's end (INCLUDING ACTIONS THEY CAN TAKE... default Strike, Pew, Flee actions, may have to create then equip on brandNewPlayer)
+                [_] need to set up the player's end (INCLUDING ACTIONS THEY CAN TAKE... default Strike, Pew, Flee actions, may have to create then equip on brandNewPlayer)
                     - this is more of a global concept
-                establish functionality for processing attacks (well, abilities do that)... rather, processing damage/effect objects within each entity
+                [_] mutate event thusly:
+                    keep the event's prompt, type, id, and mobData
+                    redefine prompt content, redefine type to battle
+                    delete menuItems
+                    add battleData                    
+                [_] establish functionality for processing attacks (well, abilities do that)... rather, processing damage/effect objects within each entity
                     - related: maybe having separate mob classes, such as class Husk, ignoring blueprints and therefore assuming more robust type AI
+                [_] fill up the battleData, make a copy for the clients, add it to the chatventure, and initialize it on the backend (make it 'live')
+                [_] set up targeting logic (client-side, mob-side)
+                    - upon initializing the battle, BEFORE the final io.to everyone, set a default 'target' for their playStack
+                    - mobs also use playStack, likewise also with a target, to keep things consistent across agents
+
 
 
                 */
@@ -1834,9 +2390,10 @@ io.on('connection', (socket) => {
         Object.keys(brandNewPlayer.stats).forEach(statKey => brandNewPlayer.stats[statKey] = parseInt(brandNewPlayer.stats[statKey]));
         brandNewPlayer.token = craftAccessToken(brandNewPlayer.name);
 
-        brandNewPlayer.level = 0;
+        brandNewPlayer.level = 1;
         brandNewPlayer.exp = 0;
         brandNewPlayer.entityType = 'player';
+        brandNewPlayer.faction = 'zenithican';
 
         // maaay go with the below instead, because chatventures have a LOT going on :P
         brandNewPlayer.chatventure = {
@@ -1868,6 +2425,8 @@ io.on('connection', (socket) => {
 
         // just a quick filtered subset of all abilities the player has 'current' access to thanks to their class
         brandNewPlayer.classAbilities = {};
+
+        brandNewPlayer.abilityBar = [];
 
         // HERE: create their 'base' township, join the socket for it
         // currently, we're using completely static values, but random flavor should come in shortly
@@ -1970,15 +2529,23 @@ io.on('connection', (socket) => {
         // HERE: init their 'derived' stats at base... hp, maxhp, mp, maxmp, atk, def, mag, res, etc. from core stats
         // consider any relevant abilities
         // also consider setting up a calcStats() type fxn to handle the lifting in the future (e.g. equipment changes, status effects, abilities, etc.)
-        brandNewPlayer.stats.hpmax = 100;
-        brandNewPlayer.stats.mpmax = 100;
-        brandNewPlayer.stats.hp = brandNewPlayer.stats.hpmax;
-        brandNewPlayer.stats.mp = brandNewPlayer.stats.mpmax;
-        brandNewPlayer.stats.atk = 10;  
+        brandNewPlayer.stats.hpmax = 30 + brandNewPlayer.stats.vitality + (brandNewPlayer.level * brandNewPlayer.stats.vitality / 10);
+        brandNewPlayer.stats.mpmax = 30 + brandNewPlayer.stats.wisdom + (brandNewPlayer.level * brandNewPlayer.stats.wisdom / 10);
+
+        brandNewPlayer.stats.atk = 10;
         brandNewPlayer.stats.def = 10;  
         brandNewPlayer.stats.mag = 10;  
         brandNewPlayer.stats.res = 10;
-        brandNewPlayer.stats.spd = 10;        
+        brandNewPlayer.stats.spd = 10;
+        brandNewPlayer.stats.hp = brandNewPlayer.stats.hpmax;
+        brandNewPlayer.stats.mp = brandNewPlayer.stats.mpmax;        
+
+        brandNewPlayer.eql = 100;
+        brandNewPlayer.actionQueue = [];
+        brandNewPlayer.actionIndex = null;
+        brandNewPlayer.chainDeadline = null;
+
+        brandNewPlayer.id = generateRandomID(brandNewPlayer.name);
 
         // HERE: init inventory, equipment, exp, history, level, equippedAbilities, memories
         // it'd be useful to have an equip(target, item) fxn so we can just roll with that going forward
@@ -2011,7 +2578,7 @@ io.on('connection', (socket) => {
         };
 
         // just a little catch-all variable :P
-        brandNewPlayer.special = {
+        brandNewPlayer.flags = {
 
         };
 
@@ -2044,6 +2611,7 @@ io.on('connection', (socket) => {
         */
         brandNewPlayer.history = {
             achievements: {},
+            expGained: 0,
             mpSpent: 0,
             battlesWon: 0,
             battlesLost: 0,
@@ -2407,6 +2975,13 @@ function loadGame(gameObject) {
     allSouls = gameObject.allSouls;
     allChatventures = gameObject.allChatventures;
     allSecrets = gameObject.allSecrets;
+
+    // ooh we should add ouch and any other 'universal' functions to all our players
+    Object.keys(allSouls).forEach(playerName => {
+        allSouls[playerName].ouch = (damageObject, source) => {
+            // hm let's go back and check strike first to determine what our damageObject ends up looking like first...
+        }
+    })
 
     updateGame(allSouls, allChatventures, allSecrets);
 
