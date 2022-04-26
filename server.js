@@ -18,6 +18,8 @@ const io = socketIo(server, {
     }
 });
 
+
+
 // let damageScale = {};
 
 
@@ -34,10 +36,98 @@ const io = socketIo(server, {
 // 'mass' is necessary for blueprints to determine how much raw material is required to construct it, though that's a bit of a later concern, as players cannot craft yet
 // either way, should probably add a 'materialReq' to ensure we don't end up with stuff that's TOO wacky, like a leather axe :P
 const itemBlueprints = {
+    'short sword': {
+        meta: 'equipment', type: 'weapon', build: 'sword', name: 'short sword', slot: 'hand', icon: null, materialReqs: {metal: 2}, minLevel: 1,
+        description: `A simple short sword. It's a sword, but kinda short.`,
+        equipStats: {
+          atk: {
+            flat: 5,
+            amp: {strength: 0.2}
+          }
+        },
+        damageType: 'slashing',
+        variance: 0.1,
+        useAbility: null
+    },
+    rod: {
+        meta: 'equipment', type: 'weapon', build: 'rod', name: 'rod', slot: 'hand', icon: null, materialReqs: {wood: 2}, minLevel: 1,
+        description: `A simple spellcaster's rod.`,
+        equipStats: {
+          mag: {
+            flat: 5,
+            amp: {willpower: 0.2}
+          }
+        },
+        damageType: 'smashing',
+        variance: 0.1,
+        useAbility: null
+    },
+    club: {
+        meta: 'equipment', type: 'weapon', build: 'hammer', name: 'club', slot: 'hand', icon: null, materialReqs: {wood: 2}, minLevel: 1,
+        description: `A simple club for whackin' and thwackin'. Often carried by muglins.`,
+        equipStats: {
+          atk: {
+            flat: 5,
+            amp: {strength: 0.2}
+          }
+        },
+        damageType: 'smashing',
+        variance: 0.2,
+        useAbility: null        
+    },    
+    'leather armor': {
+        meta: 'equipment', type: 'armor', build: 'light armor', name: 'armor', slot: 'body', icon: null, materialReqs: {leather: 4}, minLevel: 1,
+        description: `Basic armor made of leather. Simple but effective.`,
+        equipStats: {
+          def: {
+            flat: 3,
+            amp: {agility: 0.2}
+          },
+          spr: {
+              flat: 2,
+              amp: {wisdom: 0.1}
+          }
+        },
+        useAbility: null
+    },
+    'leather cap': {
+        meta: 'equipment', type: 'armor', build: 'cap', name: 'cap', slot: 'head', icon: null, materialReqs: {leather: 2}, minLevel: 1,
+        description: `A simple cap made of leather. Simple but effective.`,
+        equipStats: {
+          def: {
+            flat: 2,
+            amp: {agility: 0.1}
+          },
+          spr: {
+              flat: 1,
+              amp: {wisdom: 0.1}
+          }
+        },
+        useAbility: null
+    },
+    buckler: {
+        meta: 'equipment', type: 'shield', build: 'buckler', name: 'buckler', slot: 'hand', icon: null, materialReqs: {leather: 2}, minLevel: 1,
+        description: `A simple cap made of leather. Simple but effective.`,
+        equipStats: {
+          def: {
+            flat: 2,
+            amp: {agility: 0.1}
+          },
+          spr: {
+              flat: 1,
+              amp: {wisdom: 0.1}
+          }
+        },
+        useAbility: null
+    },
+
+
+
     rags: {
         meta: 'equipment', type: 'armor', build: 'clothes', name: 'Tattered Rags', description: `These clothes look like they've been worn through an apocalypse.`, 
         slot: 'body', icon: {type: 'x'}, equipStats: {def: {flat: 2, amp: {vitality: 0.5}}}
     },
+    
     fancyclothes: {
         meta: 'equipment', type: 'armor', build: 'clothes', name: 'Fancy Clothes', description: `These clothes are quite fashionable, bright, and well-tailored.`, 
         slot: 'body', icon: {type: 'x'}, equipStats: {def: {flat: 10, amp: {vitality: 1.5, intelligence: 1.5}}, res: {flat: 10, amp: {wisdom: 3}}}        
@@ -52,16 +142,17 @@ const itemBlueprints = {
         materialReq: {flexible: 50}
     },
     helm: {
-        meta: 'equipment', type: 'armor', build: 'helm', name: 'helm', description: `a straightforward, head-encompassing helm. On the heavier side, but offers good physical protection`,
+        meta: 'equipment', type: 'armor', build: 'helm', name: 'helm', description: `A straightforward, head-encompassing helm. On the heavier side, but offers good physical protection`,
         slot: 'head', icon: {type: 'x'}, equipStats: {def: {flat: 15, amp: {strength: 0.5, vitality: 0.5}}, res: {flat: 5, amp: {wisdom: 0.75, intelligence: 0.25}}},
         materialReq: {}
     },
+
     sword: {
         meta: 'equipment', type: 'weapon', build: 'sword', name: 'sword', description: `a simple sword`,
         slot: 'hand', icon: {type: 'x'}, equipStats: {atk: {flat: 10, amp: {strength: 0.5, agility: 0.5}}, mag: {flat: 2, amp: {willpower: 0.25, intelligence: 0.25}}},
         materialReq: {hard: 40}, dmgMod: 1
     },
-    rod: {
+    oldrod: {
         meta: 'equipment', type: 'weapon', build: 'rod', name: 'rod', description: `This is a simple spellcaster's rod, somewhere in length between a long wand and a short staff.`,
         slot: 'hand', icon: {type: 'x'}, equipStats: {atk: {flat: 2, amp: {strength: 0.25, agility: 0.25}}, mag: {flat: 10, amp: {willpower: 0.5, intelligence: 0.5}}}, 
         materialReq: {hard: 30, conductive: 60}, dmgMod: 0.7
@@ -134,39 +225,185 @@ and further mod by tier, just 'cuz :P
 
 */
 
-// let's figure out how MATERIALS work! ... mostly for the purposes of equipment modding
-// and maybe general workability, although for now 'tier' and maybe type can cover that
-const materials = {
-    0: {
+const allMaterials = {
+
         copper: {
-            name: 'copper', tier: 0, type: 'metal', meta: 'magical', traits: {hardness: 50, flexibility: 30, conductivity: 60, workability: 10, resistance: 10, ductility: 10, density: 10}
+            level: 5, type: 'metal', name: 'copper'
         },
-        bronze: {
-            name: 'bronze', tier: 0, type: 'metal', meta: 'physical', traits: {hardness: 60, flexibility: 20, conductivity: 50, workability: 10, resistance: 10, ductility: 10, density: 10}
+        iron: {
+            level: 15, type: 'metal', name: 'iron'
         },
-        leather: {
-            name: 'leather', tier: 0, type: 'leather', meta: 'physical', traits: {hardness: 15, flexibility: 80, conductivity: 40, workability: 10, resistance: 10, ductility: 10, density: 10}
+        steel: {
+            level: 20, type: 'metal', name: 'steel'
         },
-        pelt: {
-            name: 'pelt', tier: 0, type: 'leather', meta: 'magical', traits: {hardness: 10, flexibility: 90, conductivity: 70, workability: 10, resistance: 10, ductility: 10, density: 10}
-        },
+
+
         pine: {
-            name: 'pine', tier: 0, type: 'wood', meta: 'magical', traits: {hardness: 30, flexibility: 45, conductivity: 60, workability: 10, resistance: 10, ductility: 10, density: 10}
-        }, // may replace with some other wood for 'soft/magical wood' entry
+            level: 5, type: 'wood', name: 'pine'
+        },
         oak: {
-            name: 'oak', tier: 0, type: 'wood', meta: 'physical', traits: {hardness: 40, flexibility: 40, conductivity: 40, workability: 10, resistance: 10, ductility: 10, density: 10}
+            level: 15, type: 'wood', name: 'oak'
+        },
+
+        linen: {
+            level: 5, type: 'fabric', name: 'linen'
+        },
+
+        ratskin: {
+            level: 5, type: 'leather', name: 'ratskin'
+        },
+        boarhide: {
+            level: 15, type: 'leather', name: 'boarhide'
+        },
+
+}
+
+class Item {
+    constructor(blueprint) {
+        this.type = blueprint.type;
+        this.meta = blueprint.meta;
+        this.build = blueprint.build;
+        this.specbuild = blueprint.specbuild || `nonsense`;
+        this.name = blueprint.name;
+        this.description = blueprint.description;
+        this.slot = blueprint.slot;
+        this.icon = blueprint.icon;
+        this.materials = {};
+        this.mods = {};
+        this.prefixes = {};
+        this.mass = blueprint.mass || 1;
+        this.equipStats = blueprint.equipStats;
+        this.materialReqs = blueprint.materialReqs || {opalite: 999};
+        this.id = generateRandomID('item');
+    }
+
+    addMaterials(materialObject) {
+        // expecting an object of type {iron: 2}, for example
+        Object.keys(materialObject).forEach(material => {
+            this.materials[material] = materialObject[material];
+        });
+        console.log(`This ${this.name} has had materials added to its impending construction: `, this.materials);
+        return this;
+    }
+
+    craft(targetLevel) {
+        // use buildReady() then go
+        // to modify the NAME of the item, gonna need to skim materials present and pick the highest presence
+        if (this.buildReady() === false) return console.log(`Not enough materials present to build this yet!`);
+        let totalMaterialLevel = 0;
+        let numberOfMaterials = 0;
+        let highestMaterialAmount = 0;
+        let dominantMaterial = ``;
+        Object.keys(this.materials).forEach(constructionMat => {
+            totalMaterialLevel = this.materials[constructionMat] * allMaterials[constructionMat].level;
+            numberOfMaterials += this.materials[constructionMat];
+            const numberOfThisMaterial = this.materials[constructionMat];
+            if (numberOfThisMaterial > highestMaterialAmount) {
+                highestMaterialAmount = numberOfThisMaterial;
+                dominantMaterial = constructionMat;
+            }
+        });
+        let levelSoftCap = Math.floor(totalMaterialLevel / numberOfMaterials);
+        if (targetLevel > levelSoftCap) {
+            // got some FIXING to do
+            console.log(`Hm, someone is trying to make a weapon a higher level than the materials natively support. Good luck!`);
         }
-    },
-    1: {
-        iron: {},
-        'tough leather': {},
-        maple: {},
-    },
-    2: {
-        steel: {},
-        'rugged leather': {}
+
+        this.name = `${dominantMaterial} ${this.name}`;
+        this.name = this.name.split(' ').map(nameString => capitalizeFirstLetter(nameString)).join(' ');
+
+        // taking the Math.floor() off for now; we can worry about flooring when we hit final stats, weapon stats can be wacky wet 'n wild for now
+        // we can round to proper decimal states later if we wish/need to for some reason
+        // at any rate, with this boostRate, we're effectively doubling the base stats of the gear every 10 levels, which we'll test out
+        const boostRate = targetLevel / 10 + 1;
+        Object.keys(this.equipStats).forEach(baseStatKey => {
+            // !MHRnao -- amping equipment stats by boostRate
+            // example is baseStatKey def which will lead to {flat: #, amp: {stat1: #, stat2: #}}
+            this.equipStats[baseStatKey].flat *= boostRate;
+            this.equipStats[baseStatKey].flat = Math.floor(this.equipStats[baseStatKey].flat);
+            Object.keys(this.equipStats[baseStatKey].amp).forEach(ampStat => {
+                this.equipStats[baseStatKey].amp[ampStat] *= boostRate;
+                console.log(`New amp for ${ampStat} is `, this.equipStats[baseStatKey].amp);
+            })
+        });
+
+        console.log(`Clang clang clang! We have crafted a new item. Here it is: `, this);
+
+        return this;
+    }
+
+    buildReady() {
+        let buildReady = false;
+        Object.keys(this.materialReqs).forEach(requiredMatType => {
+            buildReady = false;
+            let targetNumber = this.materialReqs[requiredMatType]; // i.e. metal: 2, targetNumber = 2
+            Object.keys(this.materials).forEach(material => {
+                if (allMaterials[material].type === requiredMatType) {
+                    targetNumber -= this.materials[material];
+                }
+                if (targetNumber <= 0) buildReady = true;
+            });
+        });
+        return buildReady;
+    }
+
+
+    craftFrom(sourceMaterial) {
+        // haxxy for now; just a quick-and-dirty way to test weapon/armor creation
+        let targetLevel = sourceMaterial.level;
+        this.name = `${sourceMaterial.name} ${this.name}`;
+        this.name.split(' ').forEach(nameString => capitalizeFirstLetter(nameString)).join(' ');
+        let boostRate = Math.floor(targetLevel / 5) + 1;
+        // oh, we can't just add 5 to everything; really does a number on split-stat items, juicing them wildly, soooo
+        // we'll for now do a simple 'doubles base efficacy of the item every 10 levels' and refine it further later
+
+    }
+
+    construct() {
+        // takes into consideration materials and mods, splices together descriptions, and adds capitalization and periods to bring it home
+        // delete extras such as materialReq, if has been baked in
+        // grab a mod.name and capitalize it, grab a/the material.name and capitalize it, grab this.prefixes[0] and capitalize it, then graft with this.name OR capitalize name
+        // go through and sum all the new stats into the this.equipStats WOO
+        let originalName = this.name;
+        let finalNameString = ``;
+        if (Object.keys(this.mods).length > 0) {
+            console.log(`I am of mods!`)
+            let modSource = this.mods[Object.keys(this.mods)[0]].name;
+            finalNameString += modSource[0].toUpperCase() + modSource.substring(1) + ` `;
+        };
+        if (Object.keys(this.materials).length > 0) {
+            console.log(`I am of materials!`);
+            let materialSource = this.materials[Object.keys(this.materials)[0]].name;
+            finalNameString += materialSource[0].toUpperCase() + materialSource.substring(1) + ` `;
+        }
+        if (Object.keys(this.prefixes).length > 0) {
+            console.log(`I have a prefix!`);
+        } else {
+            console.log(`No prefix for me!`);
+            finalNameString += originalName[0].toUpperCase() + originalName.substring(1);
+        };
+        this.name = finalNameString;
+        console.log(`Congratulations! You have crafted a new item called a ${this.name}, whose stats look like this: `, this);
+        return this;
+        // 
+    }
+    addMaterial(material) {
+        // HERE: check to make sure material is approproiate for this item's construction
+
+        console.log(`Constructing the ${this.name} with a specific material: ${material.name}`)
+        this.materials = {...this.materials, material};
+        return this;
+        // here: parse material stats in
+    }
+    addMod(mod) {
+
+        console.log(`Constructing the ${this.name} with a specific mod: ${mod.name}`)
+        this.mods = {...this.mods, mod};
+        return this;
     }
 }
+
+
 
 const abilityBlueprints = {
     
@@ -298,35 +535,13 @@ messages can also be in an array, defaulting to [0] but scaling up based on skil
    
     huskSwat: {
         name: 'husk swat', tier: 1, active: true, type: 'martial', action: 'movement', intent: 'attack', flavor: 'basic', target: 'otherFaction', aoe: 'single',
-        windup: 0, cooldown: 500, mpCost: 0, eqlCost: 20, class: 'none', effects: {damage: {base: 1, potency: 1, flavor: 'basic'}},
-        message: `wildly swipes a meaty paw at`,
+        windup: 0, cooldown: 1500, mpCost: 0, eqlCost: 20, class: 'none', effects: {atkDamage: {base: 1, potency: 1, stagger: 1, flavor: 'basic'}},
+        message: `wildly swipes a meaty paw at`, // can turn this into an array and then use pickOne for FLAVOR
         // how to handle messaging in this case?? hmmmmm... we couuuuuld init the skill on an agent to init the messaging for it, then delete the messagingInit fxn?
         // well, for now, let's just go generic and fill in the finer details later
         // we can also think through all possible EFFECTS to hook into useAbility, but for now, effects.damage {base, potency, flavor} will be accounted for
-
-        prepare(agent) {
-            // for any windup
-            if (this.windup === 0) this.use(agent);
-        },
-        use(agent) {
-            // fascinating! THIS refers to this entire defined object, including fxn
-
-            // anyway, check their actionIndex and actionQueue to start tallying
-            // NOTE: it's certainly possible the actionQueue/actionIndex will have nulled out by the time this function is called
-            // oh, let's test setTimeout and clearTimeout shenanigans, one sec
-            let damage = this.effects.damage.base;
-            damage += Math.floor(Math.sqrt(agent.stats.atk));
-            let potency = this.effects.damage.potency;
-            let baseReduction = 0;
-            console.log(`${agent.name} claws wildly at ${agent.playStack.target.name}!`);
-            agent.eql -= 100;
-            agent.playStack.target.ouch({hpDamage: damage});
-
-            // SOMEWHERE: exp up, if entityType === 'player'
-
-            // SOMEWHERE: increment actionIndex by 1
-            return;
-        }
+        // can also have easy-to-replace wildcard values such as $AGENTNAME and $TARGETNAME
+        // Object.keys(ability.effects).forEach?
     },
     huskHeal: {
 
@@ -490,75 +705,384 @@ messages can also be in an array, defaulting to [0] but scaling up based on skil
 
 */
 
-class Item {
-    constructor(blueprint) {
-        this.type = blueprint.type;
-        this.meta = blueprint.meta;
-        this.build = blueprint.build;
-        this.specbuild = blueprint.specbuild || `nonsense`;
-        this.name = blueprint.name;
-        this.description = blueprint.description;
-        this.slot = blueprint.slot;
-        this.icon = blueprint.icon;
-        this.materials = {};
-        this.mods = {};
-        this.prefixes = {};
-        this.mass = blueprint.mass || 1;
-        this.equipStats = blueprint.equipStats;
-        this.dmgMod = blueprint.dmgMod || null;
-        this.materialReq = blueprint.materialReq || {};
-        this.id = generateRandomID();
+class MuglinMob {
+    constructor(initName) {
+        this.id = generateRandomID('muglinmob');
+        if (initName != null) this.name = `${initName} the Muglin`
+        else this.name = `an everyday muglin`;
+        this.level = 1;
+        this.entityType = 'mob';
+        this.species = 'muglin';
+        this.family = 'humanoid';
+        this.type = null;
+        this.class = null;
+        this.inventory = [];
+        this.playStack = {
+            gps: null,
+            nickname: null,
+            target: null, 
+            chatventure: null,
+            mode: 'chill',
+            at: 'none', // hmm
+            data: {},
+            battle: null
+        };
+        this.pips = 1;
+        this.dead = false;
+        this.chatventureID = null;
+        this.stance = 100;
+        this.abilities = {};
+        this.abilityBar = [];
+        this.nextAction = [];
+        this.currentAction = null;
+        this.faction = 'enemy'; 
+        this.soulHome = null;
+        this.wallet = 0;
+        this.stealInventory = []; // will likely refactor... stealPoolSeed? something like that
+        this.stealFlags = 0;
+        this.heat = {total: 0, average: 0}; // targeting weighting will go here, at some point
+        this.loot = {
+            skins: null,
+            treasure: null,
+            wallet: 0
+        }; // gotta figure out how to handle loot mechanics
+        this.equipment = {rightHand: null, leftHand: null, head: null, body: null, accessory: null, trinket: null};
+        this.statSeed = {strength: 8, agility: 12, vitality: 6, willpower: 6, intelligence: 5, wisdom: 6};
+        this.stats = {...this.statSeed};
+        this.ai = {}; // ai for behavioral possibilities
+        this.plan = {}; // backup for timeout actions for re-init/server restore
+        this.flags = {pickpocketed: false}; // for any specific but esoteric actions/settings        
+    }
+
+    actOut() {
+        // if (this.playStack.target == null) {
+        //     this.playStack.target = this;
+        //     // oh hey! this can be changed into 'default target' or removed entirely, since turn-based actions do NOT require a persistent target
+        // }
+
+
+        // need to decide on the play of 'stance'... changing stats and ai if you hit them with what they're most vulnerable to
+        // stance will be ignored for now
+
+        // also need to determine battle flow... hm
+        /*
+        
+            NEO BATTLE FLOW:
+            setup - everyone selects an action as battle begins, 5 seconds by default unless everyone 'checks in' with confirm?
+            ROUND 1 begins -
+                1) roll for effective deftness for the round, slotting everyone into order of actions
+                2) go through the turns in a stepping timeout cascade, echoing them down into the active battle window and pushing them into the history/battleLog
+                    2a) having a battle's specific messageSpeed adjusted can let the next timeout timer setting know on the fly
+                3) resolve each turn: action, effect, extra effect (i.e. "Bob attacks! The muglin takes 37 damage! The muglin is poisoned! The muglin is vanquished!")
+                4) once we've gone through everyone's turn, end-of-round: decrement all effects, apply side effects, extra combat resolution check, give time to select new actions
+                ... and repeat until resolved!
+            
+
+            Sooooo playStack mode can still be our 'what kind of chatventure event are we attending to'
+                ... the event's PHASE, and the event itself, can be the handler for 'hey, you - choose something to do'
+        
+        */
+
+        switch (this.playStack.mode) {
+            case 'chill': {
+                break;
+            }
+            case 'battle': {
+                /*
+                
+                    This is the default mode a muglin mob will be in right now, sooooo
+                    - for now, 
+                    - ooh ability should probably change to use(target) and let parties be entityType: 'party' among other data so abilities know what to do next
+                    - use(self) no longer!
+                
+                */
+                break;
+            }
+            default: break;
+        }
+    }
+
+    init(level) {
+        // initialize all stats here based on level, give 'em some equipment
+        // create a fxn that creates appropriate-material stuff with options to filter, cap, etc.
+        if (level == null) level = 1;
+        Object.keys(this.statSeed).forEach(statKey => {
+            this.stats[statKey] = Math.floor(this.statSeed[statKey] + (level * this.statSeed[statKey] / 10));
+        });
+        this.stats.hpmax = Math.floor(30 + this.stats.vitality + (this.level * this.stats.vitality / 10));
+        this.stats.mpmax = Math.floor(30 + this.stats.wisdom + (this.level * this.stats.wisdom / 10));
+
+        this.stats.atk = Math.floor((this.stats.strength + this.stats.agility) / 2);
+        this.stats.def = Math.floor((this.stats.agility + this.stats.vitality) / 2);  
+        this.stats.mag = Math.floor((this.stats.willpower + this.stats.intelligence) / 2);  
+        this.stats.spr = Math.floor((this.stats.wisdom + this.stats.intelligence) / 2);
+        this.stats.dft = Math.floor((this.stats.agility + this.stats.intelligence) / 2);
+        this.stats.hp = this.stats.hpmax;
+        this.stats.mp = this.stats.mpmax;
+
+        // extra: maybe loot or lootSeed initialization, as well as any stealable data... exp, as well?
+
+        // definitely need to init at least strike in here... how do we do that, again? :P
+        // have to refactor strike for the newest model at any rate
+        
+        // const Sting = new Item(itemBlueprints['short sword']).addMaterials({iron: 2}).craft(15);
+        this.equipment.rightHand = new Item(itemBlueprints['club']).addMaterials({oak: 2}).craft(this.level);
+        this.equipment.head = new Item(itemBlueprints['leather cap']).addMaterials({boarhide: 2}).craft(this.level);
+        this.equipment.body = new Item(itemBlueprints['leather armor']).addMaterials({boarhide: 4}).craft(this.level);
+        calcStats(this);
+        return this;
+    }
+
+    setType(type) {
+        // type is essentially a sub-species and will overwrite the basic statSeed before applying level and re-naming
+        // we'll worry about 'class' a bit later
+        this.type = type;
+        switch (this.type) {
+            // muglins at this stage do not really scale threateningly, so may have to introduce 'tiers' later to pump those stats more
+            case 'forest': {
+                this.type = 'forest';
+                this.name = `a forest muglin`;
+                this.statSeed = {strength: 8, agility: 12, vitality: 6, willpower: 6, intelligence: 5, wisdom: 6}
+                break;
+            }
+            case 'grassland': {
+                this.type = 'grassland';
+                this.name = `a wildland muglin`;
+                this.statSeed = {strength: 8, agility: 12, vitality: 6, willpower: 6, intelligence: 5, wisdom: 6}
+                break;
+            }
+            default: {
+                this.type = null;
+                this.name = `a common muglin`;
+                this.statSeed = {strength: 8, agility: 12, vitality: 6, willpower: 6, intelligence: 5, wisdom: 6};
+                break;
+            }
+        }
+        return this;
+    }
+
+    place(playStack) {
+        // the init'ing player's playStack can be duplicated in order to figure out where this guy goes; can also allMobs it?
+        return this;
+    }
+
+    mutate(mutation) {
+        if (mutation == null) mutation = 'none';
+        // randomly tweak stats around a bit
+        return this;
+    }
+
+    ouch(actionObject) {
+        // attackObject should contain all the 'raw data' of the attack, from typing to flavor to raw numbers
+        // the mob can then cheerfully apply this raw information to their own state, stats, stance, whatever have you
+        // the base components for the io message can drift along here as well
+        // actually, can be a two-parter... emit the "HERO ATTACKS!" message first, then "MOB TAKES 4 DAMAGE!" stuff after
+
+        // may make this a universal fxn so we can attach it to whomstever rather than copy-pasting it
+        // alternatively, may make a mother class from which all attackable entities are derived, inheriting this bad boy
+
+        /*
+        
+        let actionObject = {
+            source: {name: user?.name, id: user?.id || null},
+            attack: {
+                amount: Math.floor(user.stats.atk * action.effects.attack.potency),
+                hits: [{
+                    // floor out the damage result at the end after going through any ouches
+                    rawPower: user.stats.atk / 2, potency: 1, stagger: 1, type: 'physical', damageType: 'crushing', flavor: 'basic', vs: 'def', coverable: true
+                }],
+            }
+        };       
+        
+        */
+
+
+        if (this.flags.covered != null) {
+            console.log(`But the attack is intercepted by a valiant defender!`);
+        }
+
+        let rawDamage = 0;
+        actionObject.hits.forEach(hitObj => {
+            // doesn't yet account for any resistances, mitigations, stance details, etc.
+            rawDamage += Math.floor((hitObj.rawPower - this.stats[hitObj.vs] / 4) * hitObj.potency);
+            this.stance -= Math.floor(rando(1,5) * hitObj.stagger);
+        });
+        console.log(`${this.name} takes ${rawDamage} damage!`);
+        this.stats.hp -= rawDamage;
+        if (this.stats.hp <= 0) this.ded();
+        return this;
+    }
+
+    ded(cause) {
+        // should clear the actionQueue, io.to every player involved, and then hang out until either status changes OR existence is cleared by other means
+
+        if (this.currentAction != null) {
+            clearTimeout(this.currentAction);
+            this.currentAction = null;
+        }
+        this.dead = true;
+        console.log(`Shuddering and moaning!`);
+    }    
+}
+
+// let Dobby = new MuglinMob().setType('grassland').init(10);
+// console.log(`DOBBY IS `, Dobby);
+
+class TileArea {
+    constructor() {
+        this.biome = null;
+        this.description = ``;
+        this.seedLevel = 1;
+        this.activeLevel = 1;
+        this.threatLevel = 1; // how aggressive the inner mobs are?
+        this.extroversion = 0; // thinking of a variable as for 'how often this tile attempts to do something to surrounding or nearby tiles'
+        this.resources = {
+            metal: {quantity: 0, quality: 0, discovered: 0},
+            stone: {quantity: 0, quality: 0, discovered: 0},
+            gems: {quantity: 0, quality: 0, discovered: 0},
+            wood: {quantity: 0, quality: 0, discovered: 0},
+            water: {quantity: 0, quality: 0, discovered: 0},
+            herbs: {quantity: 0, quality: 0, discovered: 0},
+            game: {quantity: 0, quality: 1, discovered: 0},
+        },
+        this.access = 0; // how easy it is to get into the goodies of the area?
+        this.structs = {};
+        this.pointsOfInterest = {};
+        this.mobTypes = [];
+    }
+
+    level(level) {
+        this.seedLevel = level;
+        this.activeLevel = level;
+        return this;
+    }
+
+    biome(biome) {
+        /*
+        
+            Real quick... what do we want to mean by quantity and quality?
+            QUALITY = LEVEL OF MATERIAL, that's 'easy'
+            Quantity is how much amount can be harvested per harvest action per tick, modified upward somehow by discovered #
+            ... chance that at 0 discovered, quantity of 1 is basically a fool's errand
+
+            ... can derive special biome-only materials from this data, or make it explicit, or both
+        
+        */
+        this.biome = biome;
+        // we'll start with the 'starter stuff'
+        const lowQuantity = rando(1,3);
+        const lowQuality = Math.floor(this.seedLevel / rando(3.5,5));
+        const midQuantity = rando(3,5) + Math.floor(Math.sqrt(this.seedLevel));
+        const midQuality = Math.floor(this.seedLevel / rando(1.5,3));
+        const highQuantity = rando(5,7) + Math.floor(Math.sqrt(this.seedLevel));
+        const highQuality = Math.floor(this.seedLevel / rando(0.8,1.2));
+        
+        switch (biome) {
+            case 'grassland': {
+                // can change the description a bit based on level... eventually :P
+                this.description = `A lush grassland extends as far as the eye can see, dotted with shading trees, mighty bushes, and abundant life.`;
+                this.resources = {
+                    metal: {quantity: lowQuantity, quality: lowQuality, discovered: 0},
+                    stone: {quantity: lowQuantity, quality: lowQuality, discovered: 0},
+                    gems: {quantity: lowQuantity, quality: lowQuality, discovered: 0},
+                    wood: {quantity: midQuantity, quality: midQuality, discovered: 0},
+                    water: {quantity: midQuantity, quality: midQuality, discovered: 0},
+                    herbs: {quantity: midQuantity, quality: midQuality, discovered: 0},
+                    game: {quantity: highQuantity, quality: midQuality, discovered: 0},              
+                };
+                /*
+                
+                    MOB THINKIN TIME
+                    muglin - quick, vicious, but small and relatively frail; strong, impactful strikes can rattle them pretty easily
+                        - like to be sneaky and indirect... or swarm, they're fine with swarming
+                    troll - big, thick, with the tendency to regenerate rapidly unless this ability is halted with (usually) fire (and/or other magic)
+                        - they tend to use big, two-handed weapons, and are all too happy to charge up a big, devastating hit
+                        - they can get away with the lead time on that due to their massive vitality and regen
+                    bat - quick, flying, and annoyingly hard to hit consistently with physical attacks unless downed/disrupted
+                        - speaking of annoying, specialize in debuffs and status effects
+                    
+                    dayweight, nightweight? ... so some mobs can spawn more or less frequently day/night
+                        ... if weight is 0, doesn't spawn during that condition
+                    spawnChance: {
+                        time: {day, night},
+                        weather: {clear, rainy, cloudy, },
+                        partysize: [null, 1],
+
+                    }
+                    class: 'muglin' // for which class such as MuglinMob to use
+                    type: 'grassland' // as above, new MuglinMog.level().type('grassland')
+                    weight: 100 // when attempting to spawn an enemy team, will attempt to spawn until weight 100 is reached
+                        - so mob with weight 50 will always spawn 2 exactly; weight 60 has 40 left over, and has a 40/60 chance of spawning a second
+                        - special circumstances can override this 'manually' OR chance the weight limit of the battle
+                        - standard encounter = 100, at any rate
+
+
+                
+                */
+                this.mobs = [];
+            }
+            case 'plains': {}
+            case 'forest': {
+                this.description = `A verdant and relatively peaceful forest with wide, easily-traversed pathways between the many tall trees.`;
+                this.resources = {
+                    metal: {quantity: lowQuantity, quality: midQuality, discovered: 0},
+                    stone: {quantity: midQuantity, quality: lowQuality, discovered: 0},
+                    gems: {quantity: lowQuantity, quality: midQuality, discovered: 0},
+                    wood: {quantity: highQuantity, quality: highQuality, discovered: 0},
+                    water: {quantity: midQuantity, quality: midQuality, discovered: 0},
+                    herbs: {quantity: highQuantity, quality: highQuality, discovered: 0},
+                    game: {quantity: midQuantity, quality: highQuality, discovered: 0},
+                };
+                this.mobs = [];
+            }
+            case 'jungle': {}
+            case 'swamp': {}
+            case 'hills': {
+                // doop2
+            }
+            case 'mountains': {
+                // doop3
+            }
+            case 'tundra': {}
+            case 'arctic': {}
+            case 'river': {
+                // doop also? perhaps
+            }
+            case 'ocean': {}
+            default: break;
+        }
+        return this;
     }
 
     init() {
-        console.log(`Build a new item! The ${this.name}`)
+        // may already be handled by ().level(x).biome('boopty')
     }
 
-    construct() {
-        // takes into consideration materials and mods, splices together descriptions, and adds capitalization and periods to bring it home
-        // delete extras such as materialReq, if has been baked in
-        // grab a mod.name and capitalize it, grab a/the material.name and capitalize it, grab this.prefixes[0] and capitalize it, then graft with this.name OR capitalize name
-        // go through and sum all the new stats into the this.equipStats WOO
-        let originalName = this.name;
-        let finalNameString = ``;
-        if (Object.keys(this.mods).length > 0) {
-            console.log(`I am of mods!`)
-            let modSource = this.mods[Object.keys(this.mods)[0]].name;
-            finalNameString += modSource[0].toUpperCase() + modSource.substring(1) + ` `;
-        };
-        if (Object.keys(this.materials).length > 0) {
-            console.log(`I am of materials!`);
-            let materialSource = this.materials[Object.keys(this.materials)[0]].name;
-            finalNameString += materialSource[0].toUpperCase() + materialSource.substring(1) + ` `;
-        }
-        if (Object.keys(this.prefixes).length > 0) {
-            console.log(`I have a prefix!`);
-        } else {
-            console.log(`No prefix for me!`);
-            finalNameString += originalName[0].toUpperCase() + originalName.substring(1);
-        };
-        this.name = finalNameString;
-        console.log(`Congratulations! You have crafted a new item called a ${this.name}, whose stats look like this: `, this);
-        return this;
+    patrol(agent) {
+        // spawn 
+    }
+
+    explore(agent) {
+        // a general voyage of discovery, attempting to unearth SEEKRITS across all 7 current possibilities, or perhaps even discover a unique struct/POI
         // 
     }
-    addMaterial(material) {
-        // HERE: check to make sure material is approproiate for this item's construction
 
-        console.log(`Constructing the ${this.name} with a specific material: ${material.name}`)
-        this.materials = {...this.materials, material};
-        return this;
-        // here: parse material stats in
+    forage(agent) {
+        // attempt to gain more information on wood, water, herbs, and game
     }
-    addMod(mod) {
 
-        console.log(`Constructing the ${this.name} with a specific mod: ${mod.name}`)
-        this.mods = {...this.mods, mod};
-        return this;
+    prospect(agent) {
+        // really look into the situation regarding metal, stone, and gems
     }
+
+    build(struct) {
+        // probably will require more than just the struct to make this work :P
+    }
+
 }
 
-// const newSword = new Item(itemBlueprints.sword).addMaterial(materials['0'].bronze).addMod(weaponMods['0'].balanced).construct();
+
+
 
 
 
@@ -1003,10 +1527,11 @@ class Mob {
 
 
 class HuskMob {
-    constructor() {
+    constructor(initName) {
         // MHRhusk
-        this.name = `a mindless Husk`;
-        this.level = 1; // keep for now; some mobs can have a 'minimum level' specified
+        if (initName != null) this.name = `${initName} the Husk`
+            else this.name = `a mindless Husk`;
+        this.level = 1;
         this.entityType = 'mob';
         this.id = generateRandomID('huskmob');
         this.inventory = [];
@@ -1021,31 +1546,31 @@ class HuskMob {
             battle: null
         };
         this.eql = 100;
+        this.dead = false;
         this.chatventureID = null;
         this.abilities = {};
         this.abilityBar = [];
         this.actionQueue = [];
         this.actionIndex = null;
+        this.actionMomentum = {};
         this.currentAction = null;
-        this.chainDeadline = null;
-        this.faction = 'enemy'; // dead simple, but gets the job done for now!
+        this.faction = 'enemy'; 
         this.soulHome = null;
         this.wallet = 0;
-        this.stealInventory = []; // will likely refactor
+        this.stealInventory = []; // will likely refactor... stealPoolSeed? something like that
         this.stealFlags = 0;
-        this.heat = {total: 0, average: 0}; // targeting weighting will go here
+        this.heat = {total: 0, average: 0}; // targeting weighting will go here, at some point
         this.loot = {
             skins: null,
             treasure: null,
             wallet: 0
         }; // gotta figure out how to handle loot mechanics
         this.equipment = {rightHand: null, leftHand: null, head: null, body: null, accessory: null, trinket: null};
+        this.statSeed = {strength: 10, agility: 10, vitality: 10, willpower: 10, intelligence: 10, wisdom: 10};
         this.stats = {strength: 10, agility: 10, vitality: 10, willpower: 10, intelligence: 10, wisdom: 10, atk: 10, def: 10, mag: 10, res: 10, spd: 10, hpmax: 50, hp: 50, mpmax: 50, mp: 50}; // 'base' stats
-        this.balance = 0;
-        this.focus = 0;
         this.ai = {}; // ai for behavioral possibilities
         this.plan = {}; // backup for timeout actions for re-init/server restore
-        this.flags = {}; // for any specific but esoteric actions
+        this.flags = {pickpocketed: false}; // for any specific but esoteric actions/settings
     }
 
 
@@ -1063,17 +1588,29 @@ class HuskMob {
     init(level) {
         // based on level, equip, give abilities, and what have you
         // certainly they should have the ability to attack, at least :P
-        this.level = level;
+        this.level = level || 1;
+
+        this.wallet = this.level * 4;
 
         // HERE: based on init level, decide which 'type' of Husk we can generate, if they have special skills or ai, equipment potential, maybe loot stuff, etc.
         // for now, though?... just a thing to whack around, so let's just keep it mindless and fairly ai-free until we're ready to test more capabilities
 
-        // grab strike, evoke, flee?
-        this.abilities = {};
+        // let's define huskmobs at low level having a basic attack, staggering attack, maybe a desperate strike attack, and a whoopsiedoodle fell over attack
+        // - alternatively, we can try to hook in a 'special effect' on basic husk attacks that have a chance to cause them to fall over as a side effect
+        // stumble weighting based on level, disappearing by level 10 or so; factor in ai weighting to a simple degree at this stage
+
         // this.abilities['strike'] = abilityBlueprints['strike'];
         // this.abilityBar.push(abilityBlueprints['strike']);
-        this.abilities['huskSwat'] = abilityBlueprints['huskSwat'];
-        this.abilityBar.push(abilityBlueprints['huskSwat']);
+
+        // we can add 'extra weighting factor' to mob abilities
+        // this.abilities['huskSwat'] = abilityBlueprints['huskSwat'];
+        // this.abilities['strike'] = new StrikeAbility().learn();
+        learnAbility(this, 'strike');
+        this.abilityBar.push(this.abilities['strike']);
+
+
+        // may refactor the bar out completely?
+        // this.abilityBar.push(abilityBlueprints['huskSwat']);
 
         // determine chance of spawning with gear based on level and RNG
         // ideally, we should change the stat allocation to be 'weighted,' as well as subdivide per 'type'... the mindless ones shouldn't have high intelligence,
@@ -1100,6 +1637,7 @@ class HuskMob {
         this.stats.mag = Math.floor(1 + (this.stats.willpower * 0.5 + this.stats.intelligence * 0.5));
         this.stats.res = Math.floor(1 + (this.stats.wisdom * 0.5 + this.stats.intelligence * 0.5));
         equipOne(this, new Item(itemBlueprints.rags), 'body');
+        equipOne(this, new Item(itemBlueprints.sword), 'rightHand');
 
         // somewhere around here... possible auto-mutate potential? sometimes, you just get a freaky mob :P
 
@@ -1111,7 +1649,7 @@ class HuskMob {
 
 
     mutate(type) {
-        // THIS: be able to make something a Boss, Elite, Huge, whatever else, amending its properties accordingly
+        // THIS: be able to make something a Boss, Elite, Huge, whatever else, amending its properties accordingly from stats to description and loot values
         console.log(`${this.name} is attempting to mutate!`);
         return this;
     }
@@ -1128,43 +1666,15 @@ class HuskMob {
         switch (this.playStack.mode) {
             case 'test2': {
 // MHRhuskattacktest2
-                // so far, so good! ... now to refactor with the idea of 'chaining,' cooldown, as well as actionQueue shenanigans
 
-                /*
-                
-                    this.currentAction can be the timeout FXN for the thing we're currently doing, and will go through prepare() and use(), I imagine
-                    everyone has a currentAction now, hurrah. now then!
-                    
-
-                    so upon INPUT of some sort we go from abilityIndex -1 to 0 (if we're not already going) and begin using prepareAbility(agent)
-                    currentAction is set by the prepareAbility using the cooldown information, modified by whatever in the actionQueue
-
-                    mobs are a little different in that their ai might conveniently dictate a chain of moves all at once (like players can), rather than 'deciding' on the fly
-                    
-                    still gotta figure out how to handle cooldown/end of queue/delay mechanics for chain input...
-
-                    OK
-                    so you input a command, it's got at least a minimum cooldown
-                    the code groks it and exectures prepare(), immediately into use(), then onward
-
-                    OK new chainDeadline kind of variable with a timestamp equal to plus 3 seconds after last command's cooldown
-                    ... a little clunky but whatever, let's give it a go :P
-                    SO, on every action USE we need to check to see if we're at the end of the actionQueue, and if so, ohhhh
-                        ok, so if we have a new FXN whose job it is just to hit deadline, we're good
-                        let's go to useAction and ponder further
-                    and on every action INPUT we need to null the chainDeadline
-
-                */
+                if (this.dead) return console.log(`${this.name} attempted to act out, but cannot, due to being dead. Probably by its own hand at this stage.`);
 
                 
                 if (this.actionQueue.length === 0) {
                     let numberOfActions = rando(3, 5);
                     console.log(`The husk prepares ${numberOfActions} attacks...`);
                     for (let i = 1; i <= numberOfActions; i++) {
-                        // set up whack-a-self
-                        // note that we're cheerfully just setting everything to our single attack with no nuance whatsoever at this stage
                         this.actionQueue[i - 1] = this.abilityBar[0];
-                        // setTimeout(() => this.actOut(), i * 1500);
                     }
                     this.actionIndex = 0;
                     prepareAbility(this);
@@ -1203,44 +1713,6 @@ class HuskMob {
             }
 
 
-            case 'test': {
-                // let's consume the ACTION QUEUE slots!
-                let numberOfActions = 0;
-
-                // nothing planned, set up an ASSAULT BARRAGE of 1-5 actions 
-                if (this.actionQueue.length === 0) {
-                    console.log(`${this.name} suddenly looks ferocious, but can't find anyone else to attack, so begins to stomp around wildly!`);
-                    numberOfActions = rando(1, 5);
-                    for (let i = 1; i <= numberOfActions; i++) {
-                        // set up whack-a-self
-                        // hm, maybe eqlDebt can also be a positive modifier, accentuating effects by driving hard at a target?
-                        this.actionQueue[i - 1] = 'bonk';
-                        setTimeout(() => this.actOut(), i * 1500);
-                    }
-                    return this;
-                }
-
-                // this.eql -= 50;
-                // this.eqlDebt = {...this.eqlDebt, balance: this.eqlDebt.balance -= 1, last: new Date()};                
-
-                // we arrived here and this.actionQueue has some BONKS in it! let's bonk ourselves!
-
-
-                console.log(`${this.name} hurt itself in its confusion!`);
-                this.eql -= 15;
-                this.ouch({hpDamage: rando(5,10)});
-                this.actionQueue.shift();
-                // HERE: if actionQueue is depleted, set a new timeOut equal to eql recovery needed
-                if (this.actionQueue.length === 0) {
-                    console.log(`${this.name} is all tuckered out. It quaffs an elixir and recovers ${this.stats.hpmax - this.stats.hp} HP!`);
-                    this.stats.hp = this.stats.hpmax;
-                    setTimeout(() => this.actOut(), (1000 - this.eql) * 10);
-                }
-                
-                return this;
-            }
-
-
             case 'chill': {
                 break;
             }
@@ -1263,17 +1735,26 @@ class HuskMob {
     ouch(damageObject, source) {
         // hm let's go back and do m-att first to determine what our damageObject ends up looking like first...
         this.stats.hp -= damageObject.hpDamage;
-        if (this.stats.hp <= 0) this.ded();
         console.log(`${this.name} took a hit for ${damageObject.hpDamage} and is now at ${this.stats.hp} HP!`);
+        if (this.stats.hp <= 0) this.ded();
         return this;
     }
 
     ded(cause) {
         // should clear the actionQueue, io.to every player involved, and then hang out until either status changes OR existence is cleared by other means
+        this.actionIndex = -999;
+        this.actionQueue = [];
+        if (this.currentAction != null) {
+            clearTimeout(this.currentAction);
+            this.currentAction = null;
+        }
+        this.dead = true;
+        console.log(`The final attack was just too much. The husk collapses with a heavy sigh and moves no more.`);
     }
 }
 
-const Joe = new HuskMob().init(20).actOut();
+
+// const Joe = new HuskMob().init(20).actOut();
 // INTERESTING! ... so in order to CHAIN, each stage of the chain of functions needs to return THIS
 // that makes sense, now that I reflect on it. Neat!
 
@@ -1307,14 +1788,16 @@ function prepareAbility(agent) {
 
     let ability = agent.actionQueue[agent.actionIndex];
     // FOR TESTING, we'll just use console.log here before we worry about io.to(e'erbody)
-    console.log(`${agent.name} is preparing to use ${ability.name}!`);
-    if (ability.windup === 0) return useAbility(agent);
-    return setTimeout(() => useAbility(agent), ability.windup);
+    // FIXING COMBAT: !MHR
+    console.log(`${agent.name} is preparing to use ${ability.name} against ${agent.playStack.target.name}!`);
+    if (ability.windup === 0) return ability.use();
+    return agent.currentAction = setTimeout(() => ability.use(), ability.windup);
 }
 
 function useAbility(agent) {
     let ability = agent.actionQueue[agent.actionIndex];
     let resultObject = {hpDamage: 0, mpDamage: 0};
+    let target = agent.playStack.target;
     // make sure agent is still in a condition to USE after any windup, and thennnnn...
     /*
     
@@ -1331,7 +1814,13 @@ function useAbility(agent) {
     }
 
     if (agent.eql <= ability.eqlCost) {
+        recoverEql(agent);
         return console.log(`EQL too low! ${agent.name[0].toUpperCase()}${agent.substring(1)} falls over and cannot continue their actions.`);
+    }
+
+    if (agent.stats.mp <= ability.mpCost) {
+        recoverEql(agent);
+        return console.log(`MP too low! ${agent.name[0].toUpperCase()}${agent.substring(1)} stares blankly into the middle distance.`);
     }
 
     // add more conditions above as we go, but below, we'll assume we're GOOD, let's rock!
@@ -1339,15 +1828,46 @@ function useAbility(agent) {
     // HERE: add up previous queue momentum... in a bit
 
     // HERE: call damage calculation functions, if applicable; also, define said fxns in a bit
+    // oh. hrm. we don't currently take into consideration the ability's use stat and contest stat (in basic case, atk vs def)
+    // also having atkDamage vs magDamage might cheerfully fix that concern
+
+    let momentousAmp = 0;
+    Object.keys(ability.effects).forEach(effect => {
+        switch (effect) {
+            case 'atkDamage': {
+
+            }
+            default: break;
+        }
+    })
+
     if (ability.effects.damage != null) {
-        // placeholder damage until we have an actual calculation baked in
-        resultObject.hpDamage = rando(5,15);
+        // baseDamage from type-action-intent-flavor... eh, we'll just doop up for now, but can amp differently later
+        
+        if (agent.actionIndex > 0) {
+            
+            for (let i = agent.actionIndex - 1; i--; i >= 0) {
+                if (agent.actionQueue[i].type === agent.actionQueue[i].type) momentousAmp += 1;
+                if (agent.actionQueue[i].action === agent.actionQueue[i].action) momentousAmp += 1;
+                if (agent.actionQueue[i].intent === agent.actionQueue[i].intent) momentousAmp += 1;
+            }
+        }
+        let baseDamage = Math.sqrt(agent.stats.atk) + ability.effects.damage.base + momentousAmp;
+        let baseReduction = Math.sqrt(target.stats.def) / (1.5 + ((100 - target.eql) / 25));
+        baseDamage -= baseReduction;
+        baseDamage *= ability.effects.damage.potency;
+        baseDamage = Math.floor(baseDamage);
+        // somewhere around here, check hands for weapons and apply atkMod
+        resultObject.hpDamage = baseDamage;
     }
 
     let actionMessage = `${agent.name[0].toUpperCase()}${agent.name.substring(1)} ${ability.message} ${agent.playStack.target.name}, hitting for ${resultObject.hpDamage} damage!`;
 
+    // THIS AREA: create message echo, send to io and history
     console.log(actionMessage);
-    return setTimeout(() => cooldownAbility(agent), ability.cooldown);
+    agent.playStack.target.ouch(resultObject);
+
+    return agent.currentAction = setTimeout(() => cooldownAbility(agent), ability.cooldown);
 }
 
 function cooldownAbility(agent) {
@@ -1368,7 +1888,7 @@ function cooldownAbility(agent) {
         prepareAbility(agent);
     } else {
         // CASE: no currently planned 'next move,' so use chainCooldown to await the next possible action
-        return setTimeout(() => chainCooldown(agent), 3000);
+        return agent.currentAction = setTimeout(() => chainCooldown(agent), 3000);
     }
 }
 
@@ -1393,9 +1913,12 @@ function recoverEql(agent) {
     // but for now, FIVE SECONDS IN THE PENALTY BOX :P
     agent.actionIndex = -1; // this'll be our shorthand for OUTTA COMMISSION FOR NOW
     agent.actionQueue = [];
-    setTimeout(() => {
+    agent.currentAction = setTimeout(() => {
         agent.actionIndex = null;
         agent.eql = 100;
+        agent.actionMomentum = {};
+        console.log(`${agent.name} is ready to ACTION again!`);
+        if (agent.entityType !== 'player') agent.actOut();
     }, 5000);
 }
 
@@ -1412,68 +1935,137 @@ Constructing some structing
 
 BRAINSTORM:
 Many of the below can be constructed in various ways, such as a blacksmith tent or blacksmith cabin; class-buildings are likely an exception due to their nature
-[o] Construction Types: tent/hut/shack, cabin/house, building/shop, hall... eh, or have it be specific to each, that's fine/maybe preferable
 - tavern
 - den (rogue)
 - barracks (fighter)
-- temple or sanctuary (sympath)
+- sanctuary (sympath)
 - tower (mage)
 - foolplace (only there in minstats scenario)
-- general store
+- general store (only the most basic equipment, some tools)
 - tradehall / starter get-any-materials with no specificity
 - lumberjack
 - mining
-- blacksmith
-- leatherworker
+- forager
+- stonemason
+- forge
+- blacksmith (can focus on weapons, armor, accessories, general, etc.)
+- leatherworker (same)
+- woodworker
 - clothier
 - apothecary
+- gemsmith
 - stables
-- townhall
 - training yard
-- 
+- townhall
+- townwall
+- towngate (more than one is possible!)
+- stockpile
+- well
+- orchard
+- farmland
+- shipyard
+- fishfellows
+- hunterlodge
+- scoutbase
+- singlehouse
+- grouphouse
+- construction headquarters
 
-so what do we need to know about structs?
-    generatedRandomID or fixed name, depending: {
-        type: '',
-        nickname: '',
-        description: '',
-        innerDescription: '',
-        level: 1,
-        interactions: {shop: {buy: [], sell: []}},
-        icon: {},
-        gps: {},
-        dimensions: {x: 1, y: 1, z: 1},
-        construction: {}, // what it's made of... different materials can confer different effects/stat boosts?
-        boosts: {township: {}, player: {}},
-        inventory: {wares: [], construction: {}, wealth: 00, }, // we'll track these for... reasons!
-    }
+STUFF THAT CAN BE BUILT LOCALLY:
+- road
+- mine (really required for better and more metal income; otherwise lots of copper, a little iron :P)
+- logcamp
+- guardtower
+
+
+STARTING TOWNSHIP STRUCTS:
+- tavern (most of initial pop, recruit for chatventures, rumors and shenanigans)
+- player's class struct
+- general store
+- townwall (not visitable, just there :P)
+- towngate
+- tradehall (poor thing will be WILDLY overstuffed with duties :P) - can log, mine, forage, repair, construct, quarry, refine (metal and wood), and probably more
+- stockpile
+- townwell
+- scoutbase (also provides some hunting)
+
+start with say 5 or so NPC's, slotted into tavern, general store, starting class struct, tradehall, and scoutbase
+
+
+ADD: popMin, popCurrent, popCap, npcSlots, townIncome (which may have to be calculated depending on worldMap data)
+
+- popMin: always actually zero, buuuut popMin represents the minimum viable 'basic running' of a struct
+- drop below popMin, and you get drastically suboptimal effects from it
+- at zero, struct 'turns off' and fails to provide any income, and begins to fall into substantial disrepair
+
 
     NOTE: we can include 'extra' stuff the Class does NOT inherit here, such as special methods for naming, upgrade/level data, etc.
     ... and we can further play with method inheritance, if we're feeling especially spunky for future struct permutation
 
+    don't forget to add HP to structs, as well as maintenance costs (fancier places with more use require more maintenance!)
+        - or can have a 'static' calculated cost based on construction cost and popuation assigned to it?
+        - eh, makes sense, and gives something for visitors to potentially help out with :P
+        - there can also be static or multiplicative costs depending on worldMap factors
+    
+    can add a buildLimit for stuff like nexus that should be 'unique' in a township (likely also class structs)
+
+    query: if we upgrade buildings with {...oldBuildingData, ...newBuildingData}, can we accomodate for upgrades?
+        - probably yes, since the upgradeData wouldn't have overwrite data for upgrade bits
 
 */
+
+function placeStruct(struct, area) {
+    // not a strictly necessary function just yet
+}
+
 const structBlueprints = {
     'nexus': {
-        type: 'nexus', nickname: `The Nexus Crystals`, 
-        description: 'A jagged crownlike blossom of translucent blue crystal, standing twice the height of a tall man, that acts as the heart of the township.',
+        type: 'nexus', nickname: `The Nexus Crystal`, 
+        description: 'A blossom of milky blue-white crystal, standing twice the height of a tall man, that acts as the heart of the township.',
         innerDescription: 'How did you even get IN here? Crystals! Crystals everywhere!',
-        level: 1, interactions: {nexus: 'nexus'}, icon: {}, gps: {}, dimensions: {x: 1, y: 1, z: 1}, 
-        weight: 0,
-        construction: {hub: {crystalline: 100, complexity: 500}},
+        level: 1, hp: 3000, interactions: {nexus: 'nexus'}, icon: {type: 'x'}, gps: {}, dimensions: {x: 1, y: 1, z: 1}, 
+        weight: 0, buildLimit: 1, operation: {min: 0, current: 0, cap: 0, slots: 0}, npcSlots: [], population: 0,
+        construction: {main: {opalite: 100}},
         boosts: {township: {}, player: {}},
         inventory: {construction: {}},
+        upgradeData: {
+            2: {reqLevel: 1, reqMaterials: {opalite: 50}, buildTime: 3, newBuildData: {
+                description: `It's a Level 2 Nexus. Fancy! I bet it does something neat. Besides glow more brightly than before, which it certainly does.`
+            }},
+            3: {},
+            4: {},
+            5: {},
+        },
 
         nexus() {},
         init(newNexus, area) {
-            newNexus.description = `${area.nickname}'s Nexus is a jagged crownlike blossom of translucent blue crystal, standing twice the height of a tall man, that acts as the heart of this township.`;
+            /*
+            
+                INIT SHOULD: build the struct, initializing any 'randomized' values
+                - eventually should probably accept coords to 'build on'
+                - ... should every struct just be its own Class? Hmmmmmmm...
+                - that WOULD make it easier to just new NexusStruct(whereat).init().place(coords).upgradeCheck().upgrade().etc()
+
+            
+            */
+            // newNexus.description = `${area.nickname}'s Nexus is a jagged crownlike blossom of translucent blue crystal, standing twice the height of a tall man, that acts as the heart of this township.`;
             return;
+        },
+        tick() {
+            /*
+            
+                THIS: figure out what to pass in to 'tick' to make it update the township properly
+                    - 
+            
+            */
+            // goal: thinking that going through the struct list and doing structBlueprints(struct.type).tick()
         }
     },
+    // should probably copy the below into a new 'towngate' item, but for now, changing the below would break pre-existing players and mechanics
     'perimeter': {
-        type: 'perimeter', nickname: `Township Perimeter`,
-        description: `I have nothing to say about what I am, for I have not been initialized properly, and therefore am at least partially ERROR.`,
-        innerDescription: `You stand upon the perimeter of the township.`,
+        type: 'perimeter', nickname: `Township Gate`,
+        description: `The town gate stands as a simple structure, looming tall enough for a mounted rider to comfortably fit through, and bearing a sturdy set of doors to keep out the unwanted.`,
+        innerDescription: `You stand at the township gate, the wilderness beyond in clear view.`,
         level: 1, interactions: {visit: {patrol: 'patrol', explore: 'explore'}, patrol: 'patrol', explore: 'explore'}, icon: {}, gps: {}, dimensions: {x: 0, y: 0, z: 0}, // hm, gonna have to rethink how to define perimeter dimensions
         construction: {}, // not yet filled with walls and towers and gates
         boosts: {township: {}, player: {}},
@@ -1498,34 +2090,10 @@ const structBlueprints = {
 
             return console.log(`A new patrol is FULLY POSSIBLE THROUGH THE MAGIC OF JAVASCRIPTING!! :D`);
         },
-        explore(agent, origin) {},
+        explore(agent, origin) {
+            // ideally, the mechanism to begin a chatventure to locate good resources for both player and township
+        },
         visit(agent, origin) {
-            /*
-            !MHRX
-            Ok, here we go!
-            - AGENT is the requesting entity, currently definitely a player
-            - ORIGIN is the object that was used to begin the chatventure, currently absolutely the struct in question, but later... who knows! magic items! Narnian furniture!
-
-            - substantiate a 'chill' mode chatventure centered on the origin
-            - what else do we need to know to get this set up properly?
-            - ... probably nothing else, actually; this is just 'hanging out at/in the struct,' so it's just to chat and mess around with abilities
-            - that said, we DO want access to the other interactions of the struct so we can make buttons out of them and hit them up at discretion
-            - for now, just making a MUDroom and scooting the player in there is golden, so let's do that!
-
-            - oh, what if a chatventure already exists for the thing that wants to be visited? ideally we JOIN the pre-existing chatventure in that case
-            - ok, new characters should now have interactionChatRefs on their township stuff; interactionChatRefs['visit'] will be null if no chatventure, or ID if so
-            - we can work with this now!
-            
-            - CONSIDER: since we're nesting through the ORIGIN, maybe a BELONGSTO to point to the original allSouls key so we can backsolve gps stuff
-
-            OK! So we can now have a player call visit(player, theirPerimeter)...
-            We can check origin.interactionChatRefs['visit'] to be null or a chatventureID
-
-            now then! making a new chatventure! let's go grab a ref for chatventure class, as well as blueprints...
-
-
-
-            */
             // ...
 
             switch (origin.interactionChatRefs['visit']) {
@@ -1570,9 +2138,6 @@ const structBlueprints = {
 
                     ... in the end, we need each OPTION to have enough in it to be able create or join an event for a player ('doing' in playStack)
 
-
-
-                    
                     */
                     newChatventure.options['leave'] = createChatventureOption['leave'](`LEAVE`);
                     newChatventure.options['patrol'] = createChatventureOption['patrol'](`PATROL`);
@@ -1584,16 +2149,6 @@ const structBlueprints = {
                     // HERE: allChatventures - created
                     allChatventures[newChatventure.id] = JSON.parse(JSON.stringify(newChatventure));
 
-                    /*
-                    !MHRZ
-                    playStack.chatventure should become the ID
-                    ok, player.chatventure = {id: null} is our default, and can hold all chatventure data from there
-                    MEANING... huh. doooo we want double refs? in playStack AND chatventure?
-                    playStack yes. chatventure also I guess yes? ok, we're fine, let's do that; two different purposes being served
-
-
-                    
-                    */
                     // HERE: update player(s) in allSouls with all their proper data
                     allSouls[agent.name].chatventure = allChatventures[newChatventure.id];
                     allSouls[agent.name].playStack = {...allSouls[agent.name].playStack, chatventure: newChatventure.id, mode: newChatventure.mode};
@@ -1631,8 +2186,8 @@ const structBlueprints = {
         type: 'tavern', nickname: `Township Tavern`,
         description: `A simple but functional building that serves as a watering hole, entertainment hub, and in a pinch, a place for weary travelers to rest.`,
         innerDescription: `It's pretty quiet in here. Somebody is probably pouring drinks somewhere. Someone is drunk and asleep in the corner.`,
-        level: 1, interactions: {visit: {recruit: 'recruit', rest: 'rest'}, recruit: 'recruit', rest: 'rest'}, icon: {}, gps: {}, dimensions: {x: 1, y: 1, z: 1}, // hm, gonna have to rethink how to define perimeter dimensions
-        construction: {mainHall: {lumber: 100, complexity: 20}},
+        level: 1, hp: 3000, interactions: {visit: {recruit: 'recruit', rest: 'rest'}, recruit: 'recruit', rest: 'rest'}, icon: {}, gps: {}, dimensions: {x: 1, y: 1, z: 1}, // hm, gonna have to rethink how to define perimeter dimensions
+        construction: {main: {lumber: 100}}, operation: {min: 1, current: 0, cap: 5, slots: 1}, npcSlots: [], population: 10,
         boosts: {township: {}, player: {}},
         inventory: {construction: {}},
 
@@ -1644,8 +2199,8 @@ const structBlueprints = {
         type: 'general store', nickname: `Township General Store`,
         description: `A simple but functional building that serves as a watering hole, entertainment hub, and in a pinch, a place for weary travelers to rest.`,
         innerDescription: `It's pretty quiet in here. Somebody is probably pouring drinks somewhere. Someone is drunk and asleep in the corner.`,
-        level: 1, interactions: {visit: {trade: 'trade'}, trade: 'trade'}, icon: {}, gps: {}, dimensions: {x: 1, y: 1, z: 1}, // hm, gonna have to rethink how to define perimeter dimensions
-        construction: {mainRoom: {lumber: 100, complexity: 20}},
+        level: 1, hp: 3000, interactions: {visit: {trade: 'trade'}, trade: 'trade'}, icon: {}, gps: {}, dimensions: {x: 1, y: 1, z: 1}, // hm, gonna have to rethink how to define perimeter dimensions
+        construction: {main: {lumber: 100}}, operation: {min: 1, current: 0, cap: 3, slots: 1}, npcSlots: [], population: 1,
         boosts: {township: {}, player: {}},
         inventory: {construction: {}, wares: {weapons: {}, armor: {}, tools: {}, items: {}}},
 
@@ -1654,16 +2209,36 @@ const structBlueprints = {
             // it'd be neat if it read the "vibe" of the town to procure maximally useful starting wares for user's starting class
             // we're passing in the whole-arse player so we have access to ALL their variables, including township, to make some informed and whimsical choices
             // NOTE: all wares are 'blueprints,' so should meet all the necessary criteria to make a new Item()
+            /*
+            
+                NEWEST: initialize with the player's CLASS in mind, and can later 
+            
+            */
             // we can get cheeky and use pre-existing blueprints as a model for shop wares, rolling fanciful to fruitful changes to baseline gear
         },
         trade() {
             // doopty doo ... init the 'trading' chatventure
         },
-        init(newStore, area) {}
                   
     },
     'stockpile': {
         type: 'stockpile', nickname: `Township Stockpile`,
+    },
+    'town wall': {
+        type: 'town wall', 
+    }, 
+    'town gate': {
+        type: 'town gate', 
+    },
+    'tradehall': {
+        type: 'tradehall', 
+    }, 
+    'town well': {
+        type: 'town well', 
+    },
+    'scout base': {
+        type: 'scout base', 
+        operation: {min: 1, current: 0, cap: 5, slots: 1}, npcSlots: [],
     }
 
 };
@@ -1690,6 +2265,98 @@ class Struct {
         this.boosts = blueprint.boosts;
         this.inventory = blueprint.inventory;
     }
+}
+
+class NexusStruct {
+    constructor() {
+        this.type = 'nexus';
+        this.soulRef = null;
+        this.nickname = `The Nexus Crystals`;
+        this.description = `A blossom of milky blue-white crystal, standing twice the height of a tall man, that acts as the heart of the township.`,
+        this.level = 1;
+        this.hp = 3000;
+        this.interactions = {nexus: 'nexus'};
+        this.icon = {type: 'x'};
+        this.mapImage = null;
+        this.dimensions = {x: 1, y: 1, z: 1};
+        this.mapSpot = null;
+        this.weight = 0;
+        this.buildLimit = 1;
+        this.operation = {min: 0, current: 0, cap: 0, slots: 0};
+        this.npcSlots = null;
+        this.population = 0;
+        this.construction = {main: {opalite: 1000}};
+        this.inventory = null;
+    }
+
+    init(soul) {
+        this.soulRef = soul.name;
+        this.nickname = `${soul.township.nickname}'s Nexus`;
+        return this;
+    }
+
+    place(coords) {
+        // this.mapSpot = cross-ref as to where this building lives in the map zone
+        // then should peek at allSouls[this.soulRef].township.map, as well
+        // this is a for-later concept at this stage
+        return this;
+    }
+
+    upgradeCheck(targetLevel) {
+        // this: just return the info on what is needed to upgrade to level X
+        if (targetLevel == null) targetLevel = this.level + 1;
+        switch (targetLevel) {
+            case 2: {
+                break;
+            }
+            case 3: {
+                break;
+            }
+            case 4: {
+                break;
+            }
+            case 5: {
+                break;
+            }
+            case 6: {
+                console.log(`Currently IMPOSHIBIBBLE`);
+                break;
+            }
+            default: break;
+        }
+        // return this; // eh maybe not a chainable method; just return TRUE or FALSE, 
+    }
+
+    upgrade() {
+        // this: do a final check we have the requirements met, and if so, begin construction!
+        // reqs to check: stockpile inventory, weight capacity
+    }
+
+    sidegradeList() {}
+
+    sidegrade() {}
+
+    /*
+    
+    'nexus': {
+        type: 'nexus', nickname: `The Nexus Crystal`, 
+        description: 'A blossom of milky blue-white crystal, standing twice the height of a tall man, that acts as the heart of the township.',
+        innerDescription: 'How did you even get IN here? Crystals! Crystals everywhere!',
+        level: 1, hp: 3000, interactions: {nexus: 'nexus'}, icon: {type: 'x'}, gps: {}, dimensions: {x: 1, y: 1, z: 1}, 
+        weight: 0, buildLimit: 1, operation: {min: 0, current: 0, cap: 0, slots: 0}, npcSlots: [], population: 0,
+        construction: {main: {opalite: 100}},
+        boosts: {township: {}, player: {}},
+        inventory: {construction: {}},
+        upgradeData: {
+            2: {reqLevel: 1, reqMaterials: {opalite: 50}, buildTime: 3, newBuildData: {
+                description: `It's a Level 2 Nexus. Fancy! I bet it does something neat. Besides glow more brightly than before, which it certainly does.`
+            }},
+            3: {},
+            4: {},
+            5: {},
+        },    
+    
+    */
 }
 
 // for now, HAX for Zenithica
@@ -1781,57 +2448,308 @@ const classBlueprints = {
     'tinker': {}
 };
 
+function capitalizeFirstLetter(string) {
+    return `${string[0].toUpperCase()}${string.substring(1)}`;
+}
+
 /*
 
-Building Classes - at least the first few levels!
+    LEVEL UP REDUX
+    - player level goes up, stats go up! for a single class equipped, ezpz, multiply LEVEL * STATBUMPS
+    - exp requirement for class-up 
 
+    - since we're imagining player level 10 as the current 'endgame' for demo, second class equipped at that point, woooooo~
+
+
+    huskSwat: {
+        name: 'husk swat', tier: 1, active: true, type: 'martial', action: 'movement', intent: 'attack', flavor: 'basic', target: 'otherFaction', aoe: 'single',
+        windup: 0, cooldown: 1500, mpCost: 0, eqlCost: 20, class: 'none', effects: {atkDamage: {base: 1, potency: 1, stagger: 1, flavor: 'basic'}},
+        message: `wildly swipes a meaty paw at`, // can turn this into an array and then use pickOne for FLAVOR
+        // how to handle messaging in this case?? hmmmmm... we couuuuuld init the skill on an agent to init the messaging for it, then delete the messagingInit fxn?
+        // well, for now, let's just go generic and fill in the finer details later
+        // we can also think through all possible EFFECTS to hook into useAbility, but for now, effects.damage {base, potency, flavor} will be accounted for
+        // can also have easy-to-replace wildcard values such as $AGENTNAME and $TARGETNAME
+        // Object.keys(ability.effects).forEach?
+    },    
+    
+
+*/
+
+/*
+
+Building Classes - abilities
+
+aim for seven actives per to start out with? wouldn't take toooo long to define seven abilities. probably. :P
+... plus starter/universal ones here and there, as well. hm
 
 ROGUE
-    [Actives]
-    - steal swag/wealth
-    - steal balance
-    [Passives]
-    - 
+    - Steal (steal1)
+    - Ensnaggle
+    - Staccato Stabbing
+    - Mug (steal2)
+    - Underdog's Bite - st eql swap
+    - Backstab - big st finisher (works better if NOT being targeted; maybe when HEAT is a thing, that's part of it as well?)
+    - Rend (debuff) - consumer, reduces DEF & SPR
+
 
 FIGHTER
-    [Actives]
-    - bigolhit @ damage + unbalance
-    - guard
-    - cover
-    - provoke
-    [Passives]
-    -
+    - Assault - martial momentum consumer, give 'em the big bonk
+    - Sweep - finisher, modest aoe physical dmg
+    - Kiai - small ATK buff & momentum boost
+    - Execute - finisher, attempts a big crit
+    - Undermine - reduces ATK & MAG
+    - Fury - BIG existing momentum boost, turns next attack into a finisher? ... can add finish: martial to actionMomentum, then add checks for that (finish: any also)
+    - ???
 
 SYMPATH
-    [Actives]
-    - zephyr (wind1)
-    - calm/sleep (wind2)
-    - purify (water1)
-    - endure (earth1)
-    - unfocus
-    [Passives]
-    -
+    - zephyr - mild factionwide healing hp/mp over time (wind1)
+    - cleansing waves - mild panacea & protection vs poison, disease, some other ill effects (water1)
+    - salt of the earth - aoe buff DEF/RES (earth1)
+    - lulling breeze (wind2) - aoe calm/sleep
+    - wash away wounds - st instant healing (water2)
+    - quivery quake - aoe eql shenanigans (earth2)
+    - (maybe barrier - absolute mitigation)
 
 MAGE
-    [Actives]
-    - flamecast
-    - frostcast
-    - boltcast
-    // water, earth, and wind are more advanced and nuanced, so even these 'brute force' versions have higher reqs
-    - watercast
-    - earthcast
-    - windcast
-    - shield
-    - intuit
-    - charged air // 'field' magic for changing the local environment, a little or a lot
-    [Passives]
-    - 
+    - sizzleshot - st dmg & attempt burn debuff (fire1)
+    - frostfang - st dmg & debuff (ice1)
+    - shockbolt - st zappy dmg & debuff (bolt1)
+    - inferno (fire2) - aoe fire
+    - frostbite (ice2) - aoe ice
+    - shockstorm (bolt2) - aoe zap
+    - charged air - field generation based on previous spell/impulse, with default 'magic energy field'
+
 
 FOOL
 
 TINKER
 
 */
+
+class StrikeAbility {
+    constructor() {
+        this.name = 'strike';
+        this.owner = null;
+        this.tier = 1;
+        this.level = 1;
+        this.active = true;
+        this.type = 'physical';
+        this.family = '???';
+        this.intent = 'attack';
+        this.flavor = 'basic';
+        this.target = 'otherFaction';
+        this.aoe = 'single';
+        this.deftMod = 1;
+        this.exp = 0;
+        this.mpCost = 0;
+        this.pipCost = 0;
+        this.effects = {
+            attack: {
+                base: 0,
+                potency: 1,
+                stagger: 1,
+                flavor: 'basic'
+            }
+        }
+    }
+
+    learn(whomst) {
+        console.log(`WHOMST ATTEMPTED TO LEARN TO STRIKE: `, whomst);
+        this.owner = whomst;
+        return this;
+    }
+
+    use(target) {
+        let user = this.owner;
+        if (user == null) return console.log(`Someone tried to STRIKE, but nobody can figure out whomst, as the user/this.owner failed to be defined properly.`);
+        // HERE: maybe parse target.entityType for further considerations? like group targeting info... not relevant for this move, however
+        if (target == null) return console.log(`Someone tried to STRIKE, but didn't have an appropriate target lined up.`);
+        let ability = this;
+
+        if (user.stats.hp <= 0) {
+            return console.log(`Oops, cannot STRIKE whilst DED.`);
+        }
+        if (target.stats.hp <= 0) {
+            // change later to automatically swing at a different target... this ain't OG FF1
+            console.log(`${user.name} ceases their attack; their target is already quite vanquished.`);
+            user.playStack.target = null;
+            return recoverEql(user);
+        }
+        if (user.stats.mp < ability.mpCost) {
+            recoverEql(user);
+            return console.log(`${user.name} is forced to stare into the middle distance, realizing they're out of MP.`);
+        }
+        if (user.pips < ability.pipCost) {
+            recoverEql(user);
+            return console.log(`${user.name} attempts to Strike, but lacking the proper pip-itude, they topple over instead. THUD!`);
+        }
+        if (target?.faction === user?.faction) {
+            return console.log(`Alas, ${user.name} attempted to Strike ${target.name}, but they're on the same team: ${target.faction}. No friendly fire here!`);
+        }
+
+        // HERE: make and call a canIAct(user) that returns true or false to cover sleeping, dead, paralyzed, etc.
+        //      if incapacitated due to status effect, echo out accordingly and end turn
+
+        // awkwardly, allMobs has to use ID instead of name, so we may have to do some workaround voodoo to parse source info in .ouch() later
+        // actionObject can later include information on special effects such as debuffs, buffs, etc.
+        // currently assuming NOT dual-wielding no matter what :P ... dual wielding considerations can be parsed later
+        // aha! now attack.hits is an array of attacks, so one attack is just the one, but now we can handle multi-hit scenarios, including dual wield
+        let actionObject = {
+            source: {name: user?.name, id: user?.id || null},
+            attack: {
+                amount: Math.floor(user.stats.atk * action.effects.attack.potency),
+                hits: [{
+                    // floor out the damage result at the end after going through any ouches
+                    rawPower: user.stats.atk / 2, potency: 1, stagger: 1, type: 'physical', damageType: 'crushing', flavor: 'basic', vs: 'def', coverable: true
+                }],
+            }
+        };
+
+        // THIS AREA: first message echo, send to io and history
+        console.log(`${agent.name} strikes at ${target.name}!`);
+
+        // maybe set up target.ouch to RETURN a string, so that we can have this ability usage send the information to the 'room'
+        target.ouch(actionObject);
+
+        // thinking... a multi-hit ability would use a forEach or somesuch, scrolling through the targets
+
+        // HERE: maybe a final 
+
+        return user.currentAction = setTimeout(() => cooldownAbility(user), ability.cooldown);        
+
+
+
+        // AFTER: we add to the actionmomentum that the user currently has by +1 martial, +1 attack
+    }
+}
+
+
+
+function learnAbility(whomst, which) {
+    if (whomst == null || which == null) return console.log(`Someone that may not exist attempted to learn an ability that may not exist.`);
+    if (whomst.abilities == null) whomst.abilities = {};
+
+    switch (which) {
+        case 'strike': return whomst.abilities['strike'] = new StrikeAbility().learn(whomst);
+        default: break;
+    }
+}
+
+
+
+// console.log(`Bob should have learned a new ability, STRIKE! Let's see him now: `, Bob);
+// console.log(`Bob! I am King Thered. I shall gift you with 3000 experience points in STRIKE. You're welcome.`);
+// Bob.abilities['strike'].gainExp(3000);
+
+const jobClassExpReqs = {
+    tier1: [null, 0, 100, 500, 1200, 2500, 999999999]
+}
+
+
+class RogueClass {
+    constructor() {
+        this.name = 'rogue';
+        this.tier = 1;
+        this.level = 1;
+        this.exp = 0;
+        this.ownerRef = null;
+        this.insight = 0;
+        this.abilityPoints = 0;
+        this.statsMods = {strength: 1.1, agility: 1.2, vitality: 1, willpower: 0.6, intelligence: 0.9, wisdom: 0.7};
+        // this.statBonuses = {strength: 0, agility: 0, vitality: 0, willpower: 0, intelligence: 0, wisdom: 0};
+        this.abilities = [
+            null,
+            ['ability1', 'ability2']
+        ];
+    }
+
+    gain(whomst) {
+        // this: someone just learned this class! woo! set the initial abilities... which obviously should be defined ABOVE these classes, lest we error unto doom
+        // set this.owner to player.name so we don't need to add extra steps to calling further methods, as we'll know who to apply everything to
+        // ooh, so that npc's can have these classes as well, have the owner be an object ref rather than a shallow, foolish soulName ref
+        this.ownerRef = whomst.name;
+
+        // HERE: slap all starter abilities into the roster of this.abilities
+
+        return this;
+    }
+    
+    equip(slot) {
+        // this: someone wishes to equip their class! ... check 
+        if (slot == null) slot = 'main';
+    }
+
+    checkLevelUp(targetLevel) {
+        // mostly to check reqs?
+        return false;
+    }
+
+    levelUp() {
+        // bump, recalc any stat stuff, add new abilities for the new level, add some Insight
+    }
+}
+
+
+
+function calcStats(entity, type) {
+    // THIS: the noble endeavor of summing up class(es), equipment, statuses, etc. to get an accurate 'final headcount' of entity's current stats, mods, etc.
+    // NOTE: we'll need to check entityType, as we'll be using this with npcs and mobs as well, and they don't currently handle 'class' quite the same way
+    // HERE: check and fire up the ol' statSeed
+    // HERE: raise all stats according to class(es)
+    // HERE: roll through all equipment and modify based off gear
+    /*
+    
+    'short sword': {
+        meta: 'equipment', type: 'weapon', build: 'sword', name: 'short sword', slot: 'hand', icon: null, materialReqs: {metal: 2}, minLevel: 1,
+        description: `A simple short sword. It's a sword, but kinda short.`,
+        equipStats: {
+          atk: {
+            flat: 5,
+            amp: {strength: 0.2}
+          }
+        },
+        damageType: 'slashing',
+        variance: 0.1,
+        useAbility: null
+    },
+    
+
+    */
+   
+    // stat base reset
+    entity.stats.hpmax = Math.floor(30 + entity.stats.vitality + (entity.level * entity.stats.vitality / 10));
+    entity.stats.mpmax = Math.floor(30 + entity.stats.wisdom + (entity.level * entity.stats.wisdom / 10));
+
+    entity.stats.atk = Math.floor((entity.stats.strength + entity.stats.agility) / 2);
+    entity.stats.def = Math.floor((entity.stats.agility + entity.stats.vitality) / 2);  
+    entity.stats.mag = Math.floor((entity.stats.willpower + entity.stats.intelligence) / 2);  
+    entity.stats.spr = Math.floor((entity.stats.wisdom + entity.stats.intelligence) / 2);
+    entity.stats.dft = Math.floor((entity.stats.agility + entity.stats.intelligence) / 2);
+    entity.stats.hp = entity.stats.hpmax;
+    entity.stats.mp = entity.stats.mpmax;
+
+
+    // if no type is specified, calc ALL the stats; call of fxn can specify sub-calcs such as JUST equipment
+    if (type == null) type = 'all';
+
+    if (type === 'all' || type === 'equipment') {
+        Object.keys(entity.equipment).forEach((equipmentSlot) => {
+            console.log(`${entity.name} is attempting to equip stats from their ${equipmentSlot}...`);
+            if (entity.equipment[equipmentSlot] == null) return;
+            // HERE: not null, so add appropriate stats
+            Object.keys(entity.equipment[equipmentSlot].equipStats).forEach(statKey => {
+                entity.stats[statKey] += entity.equipment[equipmentSlot].equipStats[statKey].flat;
+                Object.keys(entity.equipment[equipmentSlot].equipStats[statKey].amp).forEach(statToAmp => {
+                    entity.stats[statKey] += Math.floor(entity.stats[statToAmp] * entity.equipment[equipmentSlot].equipStats[statKey].amp[statToAmp]);
+                })
+            });
+            console.log(`We attempted to parse their ${entity.equipment[equipmentSlot].name}. How'd we do, I wonder?`);
+        });
+    }
+
+}
+
+
 
 
 
@@ -1992,7 +2910,8 @@ io.on('connection', (socket) => {
             // console.log(`${decodedPlayerName} has logged in via token.`);
             const newToken = craftAccessToken(decodedPlayerName);
             socket.emit('reset_token', newToken);
-            thisPlayer = allSouls[decodedPlayerName];
+            if (allSouls[decodedPlayerName] == null) return console.log(`That player doesn't exist at this time, for some reason.`);
+            thisPlayer = allSouls[decodedPlayerName]; // NOTE: it's possible to have an 'old token' with nothing to match it to in some loading scenarios
             thisPlayer.following.forEach(soulName => socket.join(soulName));
             let initialLocationData = {
                 name: thisPlayer.playStack.gps,
@@ -2051,6 +2970,20 @@ io.on('connection', (socket) => {
         console.log(`${thisPlayer.name} has joined the game.`);
         
         // HERE: sort out lastViewTime logistics to give meaningful data for the client to parse for the player
+    });
+
+    socket.on('request_a_map', request => {
+        // !MHRmap
+        let newMap = createWorldMap();
+        let newSpawnPoint = [0,0];
+        
+        do {
+            newSpawnPoint = [rando(0, newMap[0].length - 1), rando(0, newMap[0].length - 1)];
+            console.log(`I do loop! Newspawnpoint is `, newSpawnPoint)
+            console.log(`Looks like the square we're on is of the type ${newMap[newSpawnPoint[0]][newSpawnPoint[1]]}`)
+        } while (newMap[newSpawnPoint[0]][newSpawnPoint[1]] === 'ocean');
+        console.log(`Picked a delightful new spawn point for you! It is `, newSpawnPoint);
+        socket.emit('new_play_map', {mapData: newMap, spawnPoint: newSpawnPoint});
     });
 
     socket.on('interact_with_struct', interactionObj => {
@@ -2388,6 +3321,7 @@ io.on('connection', (socket) => {
         brandNewPlayer.hash = createHash(brandNewPlayer.password, brandNewPlayer.salt);
         delete brandNewPlayer.password;
         Object.keys(brandNewPlayer.stats).forEach(statKey => brandNewPlayer.stats[statKey] = parseInt(brandNewPlayer.stats[statKey]));
+        brandNewPlayer.statSeed = {...brandNewPlayer.stats};
         brandNewPlayer.token = craftAccessToken(brandNewPlayer.name);
 
         brandNewPlayer.level = 1;
@@ -2396,15 +3330,21 @@ io.on('connection', (socket) => {
         brandNewPlayer.faction = 'zenithican';
 
         // maaay go with the below instead, because chatventures have a LOT going on :P
+        // latest: may integrate into playStack instead
         brandNewPlayer.chatventure = {
             id: null
         };
 
-        // party members! it's about to be a thing! party up!
-        brandNewPlayer.party = {};
+        // party members! it's soon to be a thing! party up!
+        // party: {leader: true, suspended: false, slotRef: 0, comp: []}
+        brandNewPlayer.party = {leader: true, suspended: false, slotRef: 0, comp: [brandNewPlayer]};
 
-        // HERE: knowing their class, give them basics of that class's perks and abilities (first we need to define some :P)... init their core class, essentially
-        brandNewPlayer.currentClass = brandNewPlayer.class;
+        // HERE: we know their class, so we can apply the appropriate mods
+        brandNewPlayer.currentClass = {main: brandNewPlayer.class};
+        // BETTER: define and then use new RogueClass().gain(brandNewPlayer).main() etc.
+        // NOTE: for posterity, we should probably NOT do this part until the allSouls for this character exists
+
+
         brandNewPlayer.classes = {};
         // INIT based off of a modified JS Class or some specifically tailored fxn
         brandNewPlayer.class[brandNewPlayer.class] = {};
@@ -2452,7 +3392,7 @@ io.on('connection', (socket) => {
             npcs: {},
             vibe: {}, // vibe changes based on available structures as well as npc's and their 'presence'/influence
             townMap: {
-                description: `Simple as can be, this little township.`,
+                description: `You are in a small township governed by ${brandNewPlayer.name}. It is currently rather bare.`,
                 structs: {
                     nexus: {
                         nickname: `${brandNewPlayer.name}'s Town Nexus`,
@@ -2474,20 +3414,73 @@ io.on('connection', (socket) => {
                 },
                 map: []
             },
-            worldMap: {
-                // theoretically, the townMap would go somewhere in this worldMap, as well
-                areas: {},
-                map: []
+            localMap: {
+                // refactoring to localMap for text-based version; will use worldMap data instead for graphical version 
+                // nexus level can open up more 'explorable slots'
+                // this is just the 'initial zone' data that the player can wiff around with
+                // can incept the concepts that will later move on into the g-ver
+                // ... probably should have these become their own class TileArea, so we can set that up shortly here
+                // !MHRlocalMap
+                areas: {
+                    grasslands: {
+                        biome: 'plains', // basis for how this area 'responds' to different attempts to alter it, such as irrigation, mining, etc.
+                        description: ``,
+                        seedThreatLevel: 1, // the 'average' or expected threat level seed; kept around so that even in highly controlled scenarios, can still 'farm' at-level encounters
+                        activeThreatLevel: 1, // modded through activity, structs, etc.
+                        resources: {
+                            metal: {quantity: 1, quality: 1, accessibility: 100}, // to help roll for 'whatchu get' per pulse; can focus on 'higher quality' for a quantity hit
+                            gems: {quantity: 1, quality: 1, accessibility: 100},
+                            wood: {quantity: 1, quality: 1, accessibility: 100},
+                            game: {quantity: 2, quality: 1, accessibility: 100},
+                            herbs: {quantity: 2, quality: 1, accessibility: 100},
+                            water: {quantity: 1, quality: 1, accessibility: 100},
+                            stone: {quantity: 1, quality: 1, accessibility: 100},
+                        },
+                        access: 50, // may rename, but how 'within reach' this area is to the township for resource gathering purposes, scale of 0 - 100?
+                        structs: {
+                            // capacity to build up structs in these localMap zones based on various township qualities
+                            // some abandoned or natural structs can generate sometimes
+                            // can cheerfully include meta-structs such as other townships (in the future) or encampments
+                        },
+                        pointsOfInterest: {
+                            // loose term for now, but denoting special places that can be explored/interacted with/chatventured around
+                        },
+                        mobTypes: {
+                            // mobTypes can, depending on various factors, have mods to their level range, and possibly special extra flags/weights added to them
+                            // if no mobTypes are specified, HUSKS IT IS, with wildcard chance to encounter something truly random and bizarre
+                            // group likelihood behavior can be defined here as well
+                            // 'biome-type' mobs possible, such as wildland muglins, forest trolls, etc.
+                        }
+                    },
+                    hills: {
+                        biome: 'hills',
+                        description: ``,                        
+                        seedThreatLevel: 5,                     
+                        activeThreatLevel: 5,
+                    },
+                    forest: {
+                        biome: 'forest',
+                        description: ``,                        
+                        seedThreatLevel: 10,
+                        activeThreatLevel: 10,
+                    },
+                    mountain: {
+                        biome: 'mountain',
+                        description: ``,                        
+                        seedThreatLevel: 25,
+                        activeThreatLevel: 25,
+                    }
+                }
+                // map: []
             },
             population: 0,
             events: {},
-            resources: {}, // forgot what my intent was here :P
             history: [],
-            lastTick: new Date()
+            lastTick: null
         };
         brandNewPlayer.township = {...brandNewTownship};
-        // HERE: can whip through and attach structs with the new Struct(blueprint) model
-        // add perimeter, tavern, and classBuilding at this stage
+        // HERE: use most current struct-placing model to place starting structs
+        // latest: probably going to go with struct-specific classes instead of blueprints-based base Struct class
         brandNewPlayer.township.townMap.structs.perimeter = new Struct(structBlueprints.perimeter);
         // tavern goes here
         // classBuilding goes here
@@ -2529,21 +3522,21 @@ io.on('connection', (socket) => {
         // HERE: init their 'derived' stats at base... hp, maxhp, mp, maxmp, atk, def, mag, res, etc. from core stats
         // consider any relevant abilities
         // also consider setting up a calcStats() type fxn to handle the lifting in the future (e.g. equipment changes, status effects, abilities, etc.)
-        brandNewPlayer.stats.hpmax = 30 + brandNewPlayer.stats.vitality + (brandNewPlayer.level * brandNewPlayer.stats.vitality / 10);
-        brandNewPlayer.stats.mpmax = 30 + brandNewPlayer.stats.wisdom + (brandNewPlayer.level * brandNewPlayer.stats.wisdom / 10);
+        brandNewPlayer.stats.hpmax = Math.floor(30 + brandNewPlayer.stats.vitality + (brandNewPlayer.level * brandNewPlayer.stats.vitality / 10));
+        brandNewPlayer.stats.mpmax = Math.floor(30 + brandNewPlayer.stats.wisdom + (brandNewPlayer.level * brandNewPlayer.stats.wisdom / 10));
 
-        brandNewPlayer.stats.atk = 10;
-        brandNewPlayer.stats.def = 10;  
-        brandNewPlayer.stats.mag = 10;  
-        brandNewPlayer.stats.res = 10;
-        brandNewPlayer.stats.spd = 10;
+        brandNewPlayer.stats.atk = Math.floor((brandNewPlayer.stats.strength + brandNewPlayer.stats.agility) / 2);
+        brandNewPlayer.stats.def = Math.floor((brandNewPlayer.stats.agility + brandNewPlayer.stats.vitality) / 2);  
+        brandNewPlayer.stats.mag = Math.floor((brandNewPlayer.stats.willpower + brandNewPlayer.stats.intelligence) / 2);  
+        brandNewPlayer.stats.spr = Math.floor((brandNewPlayer.stats.wisdom + brandNewPlayer.stats.intelligence) / 2);
+        brandNewPlayer.stats.dft = Math.floor((brandNewPlayer.stats.agility + brandNewPlayer.stats.intelligence) / 2);
         brandNewPlayer.stats.hp = brandNewPlayer.stats.hpmax;
-        brandNewPlayer.stats.mp = brandNewPlayer.stats.mpmax;        
+        brandNewPlayer.stats.mp = brandNewPlayer.stats.mpmax; 
 
-        brandNewPlayer.eql = 100;
+        brandNewPlayer.pips = 1;
         brandNewPlayer.actionQueue = [];
         brandNewPlayer.actionIndex = null;
-        brandNewPlayer.chainDeadline = null;
+        brandNewPlayer.actionMomentum = {};
 
         brandNewPlayer.id = generateRandomID(brandNewPlayer.name);
 
@@ -2613,6 +3606,7 @@ io.on('connection', (socket) => {
             achievements: {},
             expGained: 0,
             mpSpent: 0,
+            pipsSpent: 0,
             battlesWon: 0,
             battlesLost: 0,
             battlesFled: 0,
@@ -2635,6 +3629,10 @@ io.on('connection', (socket) => {
         
         socket.join(brandNewPlayer.name);
         allSouls[brandNewPlayer.name] = JSON.parse(JSON.stringify(brandNewPlayer));
+
+        // actually, the PARTY ref will be stale due to the parsing... so go back and 'refresh' intended object references, just in case
+        // what other elements need this treatment?
+        allSouls[brandNewPlayer.name].party = {leader: true, suspended: false, slotRef: 0, comp: [brandNewPlayer]};
 
         thisPlayer = allSouls[brandNewPlayer.name];
 
@@ -2909,6 +3907,7 @@ let todaysDateKey = calcDateKey(today);
 // ADD, for below - game-loading fxn (to be called in two ~ three spots below), game-updating fxn (to be called within game-loading fxn)
 // game-loading fxn should handle all the common basics of setting up global variables, setting up timers, etc.
 
+
 GameState.findOne({ dateKey: todaysDateKey })
     .then(searchResult => {
         if (searchResult === null) {
@@ -2942,8 +3941,8 @@ GameState.findOne({ dateKey: todaysDateKey })
 
                         // HERE: add checks to make sure everything is humming along, and then the server goes up
 
-                        return loadGame(freshGameObject);
-                        server.listen(PORT, () => console.log(`Township Chatventures is loaded and ready to play!`));
+                        loadGame(freshGameObject);
+                        return server.listen(PORT, () => console.log(`Township Chatventures is loaded and ready to play!`));
                     } else {
                         // game-loading! - situation pulling up yesterday
                         const gameToLoad = JSON.parse(JSON.stringify(newSearchResult));
@@ -2978,8 +3977,9 @@ function loadGame(gameObject) {
 
     // ooh we should add ouch and any other 'universal' functions to all our players
     Object.keys(allSouls).forEach(playerName => {
-        allSouls[playerName].ouch = (damageObject, source) => {
-            // hm let's go back and check strike first to determine what our damageObject ends up looking like first...
+        allSouls[playerName].ouch = (attackObject) => {
+            // can copy from mmob later
+            this.hp -= 1;
         }
     })
 
@@ -3002,4 +4002,690 @@ function loadGame(gameObject) {
 function updateGame(allSouls, allChatventures, allSecrets) {
     // haxxy game update engine :P
     if (allSouls.Zenithica.township.nickname == null) allSouls.Zenithica.township.nickname = 'Zenithica';
+}
+
+function createLocalMap() {
+    // for when townships can zippity
+}
+
+function createWorldMap(seedObject) {
+    /*
+
+        I apparently can't help myself so let's gooooo~!
+
+        Onto creating a 'world.' Worlds cannot be created indefinitely and will 'fold in' upon themselves without a player in them after awhile.
+            - well, they'll functionally cease to exist; they still exist in-lore, probably
+        
+        Anyway, upon creation, they're added to the allWorlds global object (currently does not exist - we'll fix that shortly)
+        
+        So, going in, we need a 'seed' object.
+        {size: 'small', rules: [], level: 1, threatLevel: 1} ... tileAreas hrm
+        NOTE: small is the only valid size for now and is the assumed default :P
+        NOTE: 'starter' is the only explicit rule we'll start with, but it'll later be the basis of this idea:
+            ZONE! - now WORLDTYPE!
+            - first seed source, determines how many biome seeds are planted and how likely they are to proliferate
+            - we're not going to worry about being scientific for these zones (macro biomes)
+            - types: arid, frigid, fungal, lush, volcanic, peaceful
+        
+
+        for now, all 'oceans' act effectively as indefinite boundaries, as I haven't yet planned out any way to get across said oceans
+        ... oh, hm, mounts or contexts?... ok, later, everyone can ride horses and boats. anyway:
+        so ideally in a large theoretical world, we'd start with endless ocean, spawn up landmasses of a certain size, and then dot those landmasses
+        - 'seed in' a certain number of forests with a certain level of aggression, and they'd 'spread' with certain logic
+        - we'd have to handle collision concepts and derivative structuring
+        - order of operations: big ol' sea, landmasses based on world attributes (but 'landing site' always of a certain minimum size and viability pending harsh rules)
+        - for now, the 'landing site' is the center of the world and the sauce for at least one large landmass (though with infinite scrolling player doesn't need to know they're at the 'center' of the world per se)
+        - array of arrays, here we go
+        - generate an image to world with, a canvas upon which to paint our brave hero(es) and other noteworthy stuff
+        - eh, landing site can be wherever, but STARTER landing site/township site should be on grasslands near forest... need that early wood, yo
+        - even better, near forest AND hill but on grassland, great success
+        - we can 'force' this outcome for now
+        let's say SMALL WORLD is 100 tiles by 100 tiles (so actually NOT stupidly small... we can shrinky-dinky it if it's too much to work with, but it gives us some space to play)
+        ... those are big arrays!
+        so [
+            [room, room, room, room, room, ...100 times total],
+            [more rooms, this is y = 2]
+            [here's y = 3 at index 2, so the FIRST INDEX is how far we are down from the 'top' of the world]
+        ]
+        so it's actually [y][x], with the topmost row being y index 0, and the left side of the world being x index 0. got it, easy enough.
+        I'd like the top/bottom of the world to be more frosty, and the middle of the world to be more temperate, meaning the happy medium would be somewhere in between?
+        so let's aim for y around 24 give or take 5ish and x wherever
+        ... right now as I create the concept, it's somewhat moot as there are only two terrain types :P
+        ... but soon as possible, more, so many more!
+
+        what do we need to know? ... well, starting with OCEANS EVERYWHERE, which we don't yet do because oceans don't exist...
+        ... we then need to "seed" in at least one large landmass, 
+        "SEED PROCESS" - the thing(s) to seed, with enough data built in to determine a growth of some sort
+        ... basically we just have waves of seed-and-grow until we have a finished result
+
+        ... ok, so we'll treat OCEAN as drawable but not traversible for now
+        ... we'll finish up adding basic biomes once we've tested creation of the grassland/forest concept
+
+
+
+        All the rules for how everything works will go in this function, so as we change this fxn, nuance will grow. Fun!
+
+        
+        WILD STRUCTS! What are they? How do they work?
+
+        BIOMES! ... quite zone-dependent, which we'll define more below
+        ... NOTE: for this, 'biome' is a non-strict definition, and is more like "tileType" for the purposes of the flora, fauna, resources, and chatventures possible
+        FORESTS
+            - forest (temperate)
+            - jungle (tropical rainforest, essentially)
+            - taiga (boreal/northern/cold forest)
+        WETLANDS
+            - swamp (forest wetlands, slow moving waters with woody plants such as cypress and mangrove)
+            - bog (mostly dead stuff, generally higher up)
+            - marsh (same water as swamp but softer, non-woody)
+        FLATLANDS
+            - savanna (tree-studded/'tropical' grasslands, thanks to just enough seasonal rainfall -- actually many types, and tend to occur between forest and 'true' grassland?)
+            - plain (or prairie; short to tall grasses, flowers, and herbs, but no trees due to not quite enough rainfall, just a tad too dry)
+            - tundra (flat, cold, permafrost under the soil makes trees a no-go, grass and moss grow during short summer, birdless in winter, li'l burrowing game present)
+        DESERTS
+            - arctic (tons of water... locked in ice, so plants and animals ain't getting any)
+            - desert
+        MARINE
+            - ocean
+            - what else... bay, shoal, coast, ?
+        FRESHWATER
+            - lake (note: particularly small/shallow lakes are ponds, but for now we don't need to bother with this distinction)
+            - stream (crossable on foot - more of an 'overlay' for our tile purposes)
+            - river (not crossable on foot by default)
+        BUMPY (not actually a biome type IRL :P)
+            - hill
+            - mountain (REAL high hills :P... we won't make them impassable for now due to limitations in our seed gen... generally in the middle of lots of hills)
+
+        
+        TAIGA and TUNDRA pop up in the highest latitudes on Earth, at least (60 - 90, top/bottom 'third' or so)
+        0 - 30 (from middle up and down 1/3) tend to be rather tropical
+        30 - 60 gives you most of your temperate options
+        ... I've also seen 0 - 23 vs 66+, so this could be a world gen attribute as well... 'temperature band sizing'
+
+        Ok, so if we upgrade record-keeping during landmass creation... we'll have more data to work with.
+        Or we could just have a default seed of "%" of certain features (based on world gen quirks), rando-weight a bit, and then start planting
+        - 'snake method': turn the total % into a discrete number of tiles, randomly divide into separate seeds (reduction method - roll for a chunk, then keep rolling until there's a remainder)
+        - sounds good! now, let's define the %... just going off TYPE for now
+        TYPES: forest, wetland, flatland, desert, freshwater, bumpy
+        default weights: forest-20, wetland-10, flatland-30, desert-10, freshwater-15, bumpy-15 (weight 100 total, so right now those are %s)
+            - we'll assume certain terrains tend to have higher or lower levels inherently?
+            - and 'deeper parts' of zones are more dangerous
+            - so when we grow a zone... actually, we need some bounding rules, some of our unbounded land shapes are pretty wild
+            - it'd be hard to find a 'center' for the current continent-snakes...
+            - but too much bounding and we'd get some really dull results, hmmm
+            - well, we'll worry about level-seeding a bit later! little bit later. for now... LET'S GROW SOME FORESTS!
+
+        
+
+
+        We can simplify for now by defining a total range/weight of certain base elements based on world gen
+        - if we upgrade the record-keeping mechanism, we'll also know what bands everything falls in for 'temperature-izing'
+
+
+        ... and each can have its own weather and state, such as raining, flooded, snowing, snow-coated?
+
+        ROLLING RESULTS FROM A PROBABILITY RANGE... fxn! define below, circle back ... effectively 0% forest in a desert, for example
+
+
+
+        LEVEL & THREAT!
+        - start with a fairly uniform threat with dips and spikes here and there, probably highest in seed spots
+        - township involvement and struct placement can help lower the level/threat present proximate to township/special structs
+
+        SIZE!
+
+
+
+
+        PLAYSTACK OVERHAUL: pending
+
+        LEVEL OVERHAUL:
+        - gaining levels grants Insight, which can be spent to gain or level up classes (1 - 10)
+        - achievements can also grant Insight
+        - ooh, stat level-ups based on statSeed, and then the class MODIFIES this total both flatly and absolutely
+        
+        STATS OVERHAUL: 
+        - same core stats; seed stats; statMods (effects); effectiveStats
+        - still scale based off currentClass(es) and core level
+        - attack, defense, magic, and spirit can scale based off equipment as before
+            - 'sword tricks' type abilities that classes or general can learn
+            - atk/def/mag/spr also have a 'default value' related to core stats and then scale by equipment
+        - deftness also derived stat
+        - charm or charisma, also?
+        
+        ABILITY OVERHAUL:
+        - you know it or you don't! ... upgrades can be possible with class-specific ability points
+        - some automatically learned, some found/bought? sure!
+        - no longer 'belong' to individual classes, but we can set them up to be only available through classes exclusively (or mostly exclusively)
+        
+        EQUIPMENT OVERHAUL: mostly DONE!
+        - got some more ideas on that... DQTish
+
+        MATERIAL OVERHAUL: mostly DONE!
+        - thinking of having 'versions' of stuff all the way up to level 99/100 (level 1 rotted pinewood; level 50 verdant copperpine)
+        - dictate level and mod a bit
+        - biomes seed with 'basic' spreads of expected materials based on level and then the meta generator throws in a few surprises here and there... some treats!
+
+        COMBAT OVERHAUL:
+        - turn-based combat... if we get any form of that up and running, even with dead-simple AI, we'll call it aces for our current purposes
+
+        NPC/TOWNSHIP OVERHAUL:
+        - no more generic 'population' - all npcs have a name and presence
+        - most building output requires NPC presence, and upgrades lead to more possible slots
+        - various ways to 'recruit' npcs... add them as we go!
+        - main thing is to randomly generate a slew of 'starter' npcs and auto-slot them into some of our starting structs to bring them online before first tick
+        - might do a 'zoom tick' to simulate a bunch of ticks to 'set the stage' for our area/world/township/etc.
+        - mainly figuring out how management of 'core starter buildings' looks civ-wise and the same for buildings that you can get going in early play
+        - being able to click an NPC and say 'come with me!' and bring them on chatventures would be great (or recruit from your tavern... or random town taverns)
+
+        STRUCT OVERHAUL:
+        - structs have buttons, boop a button to have a thing happen, each button corresponds with something doable
+        - resource hub team automatically does their best?
+        - towngate EXPLORE lets you pop out and wander the local world map
+
+
+
+        
+
+        I like "Deftness" instead of "spd." A more worthy derivative stat! derived from agility and intelligence
+
+        SO WHAT IF I
+        - made a supremely simple tileset - grass, forest, hill, and water - and sent it to myself
+        - made a rendering test space in the client, using the file source to figure out how best to handle all that
+        - sent down (can add a quick, login-less request boop) a worldMap, then figured out how to integrate camera/scrolling/movement (smooth or stepwise, whatever works)
+        ... THEN I ...
+        - rejiggered combat and stats to be deadsimple DQ-inspired with turn-based semi-active combat with turn order based on move and deftness
+        - laid out a bunch of basic 'universal' abilities then just a small handful of specific class abilities to start with (so classes = mostly stat gain at first)
+
+
+
+        BIG THINGS TO ADD/CHANGE FOR GRAPHICS UPDATE:
+        - probably worldMap data globally, so each 'world' can be easily grabbed? ... living uniquely inside of player townships is a little backwards
+        - allMobs and/or allNpcs (the latter would ONLY populate by 'sleeping' the township copy and copying over a 'live adventure' version)
+        - let the client do a bunch more work... give it authority during exploration, at minimum, as that feels currently fairly 'safe'
+        - basic stuff to 
+        - tile triggers (walking over a town doesn't automatically put you inside, BUT walking over an angry muglin encampment? guards are gonna getcha)
+        - if NOT stutter-stepping across the map, can ride/boat/fly?
+            - that brings up an interesting question: how to handle when you're not the party leader and you're being walked around a map
+            - 'easiest' way is to just leave them in the 'chat mode' while the leader walks around for 'em
+
+
+        ... this sorta became a 'hrmmm for all current planning' space. Eh. That's fine.
+
+        Newest game theory: Civ1 mixed with Dragon Quest mixed with just chattin'/global multi-model echoes
+
+        So we have the 'current context window' up above and the 'chatty/text event window' down below
+            - can minimize either, maximizing the other
+            - poppin' windows such as inventory, stats, shopping, etc. probably can live in the 'current context window' and resize accordingly
+
+        For tilemapping, maybe a 'substrate' (like edge-of-water vs flat green square), then 'topping' (forest, hills, mountains, etc.)
+        - initial tilemapping images can be SUPER lazy, like just obvious squares everywhere (can go in and have stuff figure out 'edge behavior' after, or on newly gen'd maps)
+        - test initial tilemapping with just basic color squares
+        - canvas, AHOY
+
+
+
+        Ok, so if we upgrade record-keeping during landmass creation... we'll have more data to work with.
+        Or we could just have a default seed of "%" of certain features (based on world gen quirks), rando-weight a bit, and then start planting
+        - 'snake method': turn the total % into a discrete number of tiles, randomly divide into separate seeds (reduction method - roll for a chunk, then keep rolling until there's a remainder)
+        - sounds good! now, let's define the %... just going off TYPE for now
+        TYPES: forest, wetland, flatland, desert, freshwater, bumpy
+        default weights: forest-20, wetland-10, flatland-30, desert-10, freshwater-15, bumpy-15 (weight 100 total, so right now those are %s)
+
+
+
+    
+    */
+    //
+    
+    let mapSize = 200;
+    let newWorldMap = new Array(mapSize);
+    for (let i = 0; i < mapSize; i++) {
+        newWorldMap[i] = new Array(mapSize);
+    }
+    let biomeRecords = {
+        ocean: [],
+        forest: [],
+        flatland: []
+    };
+
+    
+    // the world is all ocean by default
+    for (let y = 0; y < mapSize; y++) {
+        for (let x = 0; x < mapSize; x++) {
+            newWorldMap[y][x] = 'ocean'; 
+            biomeRecords.ocean.push([y,x]); 
+        }
+    }
+
+    // lol yup it works just a cute little 900 item array no big deal, "... 800 more items" indeed
+    // console.log(`Our oceans have been filled! Behold our record of the ocean: `, biomeRecords.ocean);
+    // let allGenerators = [
+    //     {
+    //         gps: [14,14],
+    //         rangeMax: null,
+    //         numSeeds: 250,
+    //         replaceRules: {'..': true},
+    //         seed: '[]',
+    //         type: 'flatland', // we'll have this be the default; we can math out the 'chunk' of 'not-flatland' easily enough
+    //         record: {} // object with each 'key' being a latitude strip - add in record-keeping during initial land generation
+    //     }
+    // ]
+
+    /*
+    
+        OK! The newest challenge: how to create a new gps origin for forests
+        ... and randomize the gps for grassland above, too
+        ... and also allow for the possibility of multiple separate generators... say, 3 separate landmasses
+        ... we could move some of this logic into functions, and then loop around until we've exhausted some master list of 'stuff to generate'
+
+        that would help, but first...  hmm...
+        for each landmass, we want to
+        1) let it decide where to put itself
+        2) snake itself into a shape
+        3) go through all its decoration phase to convert its mass into separate biomes, including recognizing pre-existing lakes
+        ... maybe dividing itself into 'zones,' ooh, based on where it is in the world's axis (the world itself having climes???)
+        ... this is entirely too much fun :P
+
+
+        MHRlandmind
+        we draw the land (flatland), find the innerTiles, then we splash in several water sources thoughtfully across the innerTiles, removing them from other records...
+        ... recording new freshwater data as we do, in some fashion...
+        ... then we presume those areas are 'wetter' and preferentially throw some bounded forest-snakes near these water sources to deplete our 'forest count'
+        ... wetlands, such as swamps, are 'transition areas' and would be found near big rivers... may pop 'em out for now, pending better seeding logic
+    
+    */
+
+    // we'll derive this programmatically/dynamically later
+    // ... actually, we get some REALLY cool shapes when we let several large unbound snakes rampage across each other
+    // we may want to make a separate, dedicated API for worldbuilding... it takes a sec!
+    let landMassCount = 3;
+    let availableSeeds = Math.floor((mapSize * mapSize) / 5);
+    availableSeeds = rando(availableSeeds / 1.3, availableSeeds * 1.3)
+    let landMassGenerators = [];
+
+    // whoa, neat. at scale, it looks a LOT more interesting!
+    // however, when we have multiple landmasses, without bounding they kind of just idly slam into and across each other
+    // while visually awesome, it does mean that we can't guarantee any segregation :P
+    // we're also still suffering from the 'all the hills are in one area, all the forests are in another' effects
+    // freshwater is still kind of a mess, too... if we make them untraversible we hit issues, but then we have no proper lakes/non-ocean water bodies otherwise
+    // though, if we limit freshwater (and maybe hilly areas?) to 'innerTiles' we might see less wacky behavior?
+
+    for (let l = 1; l <= landMassCount; l++) {
+        // -ideally-, for multiple landmass scenarios, we'd 'force adequate distance' by:
+        // 1) adding a rangeMax (not in all cases)
+        // 2) referencing previous landmasses to try to assure a minimum distance
+        // 3) ... a third thing I had in mind and forgot a moment ago :P
+        // ... and if they collide, they collide, I'm not against natural land bridges in most cases!
+        // that said, we need to keep a record as we go so we can go back over those land spots and properly address 'own 
+
+        // forest-20, wetland-10, flatland-30, desert-10, freshwater-15, bumpy-15
+        // can adjust those based on world gen rules in here
+        let newLandGPS = [0,0];
+        do {
+            newLandGPS = [rando(0,mapSize-1),rando(0,mapSize-1)];
+        } while (false);
+        let newGenerator = {
+            gps: newLandGPS,
+            spawn: newLandGPS,
+            rangeMax: null,
+            numSeeds: 0,
+            // NOTE: it works, but I'm not sure the ratios are ideal, and same issue with imprecise gen...
+            // but we could work around it, potentially, hrm
+            tiles: {forest: 20, wetland: 5, flatland: 30, desert: 10, freshwater: 10, bumpy: 15},
+            numZones: {forest: rando(1,3), wetland: 1, desert: rando(1,2), freshwater: rando(1,3), bumpy: rando(1,3)},
+            zones: {},
+            replaceRules: {'..': true}, // might not have to worry about numZones since snakes will likely wildly crisscross anyway... hm
+            // so we can let wild criss-crossing 'accidentally' create separate areas visually, but that doesn't help us zone, so... nevermind I guess :P
+            // then we definitely do need to be a little cautious about letting the snakes run too amok
+            // ooh, for rangeMax, what if we 'return to center' and restart? that'd create tighter patterns than bonking against invisible walls
+            seed: 'flatland',
+            type: 'flatland',
+            record: [], // doop de doo... object or array for this? hrmsicles...
+            tileRecord: {forest: [], wetland: [], desert: [], freshwater: [], bumpy: []},
+            innerTiles: []
+        }
+        if (l === landMassCount) newGenerator.numSeeds = availableSeeds
+            else newGenerator.numSeeds = Math.floor(rando(availableSeeds / 5, availableSeeds / 2));
+        console.log(`Landmass #${l} has claimed ${newGenerator.numSeeds} seeds!`);
+
+
+        // randomly warping the initial 'seed weights' that the initial tiles values represent
+        Object.keys(newGenerator.tiles).forEach(tileSeed => {
+            // can manipulate based on world rules, but for now, just wild random rolls
+            newGenerator.tiles[tileSeed] += rando(newGenerator.tiles[tileSeed],newGenerator.tiles[tileSeed] * 2);
+        });
+
+        let tileSum = Object.keys(newGenerator.tiles).map(tileKey => newGenerator.tiles[tileKey]).reduce((prev, current) => prev + current, 0);
+        // console.log(`Initial tilesum: ${tileSum}`);
+
+        // now we go ahead and try to derive actual number of tiles with some mathemagics
+        Object.keys(newGenerator.tiles).forEach(tileSeed => {
+            newGenerator.tiles[tileSeed] = Math.floor((newGenerator.tiles[tileSeed] / tileSum * newGenerator.numSeeds));
+        });
+
+        // console.log(`Final number of tiles for each should be here: `, newGenerator.tiles)
+
+        // later can consider doing an extra loopty to adjust any rounding difference between actual tileSum and numSeeds, but not critical
+
+
+
+        landMassGenerators.push(newGenerator);
+    }
+
+    let currentDirection = null;
+    
+
+    // initial 'flatland' generator on the ocean for a given generator
+    landMassGenerators.forEach(generator => {
+        do {
+            // if the spot we're currently on isn't the seed string, turn it into the seed string and decrement seeds by 1
+            // this later would better be generalized by referencing replaceRules
+            if (newWorldMap[generator.gps[0]][generator.gps[1]] !== generator.seed) {
+                newWorldMap[generator.gps[0]][generator.gps[1]] = generator.seed;
+                // biomeRecords[generator.type].push([generator.gps[0], generator.gps[1]]);
+                generator.record.push([generator.gps[0], generator.gps[1]]);
+                generator.numSeeds -= 1;
+            }
+            
+            
+            // technically the IF statements below only check Y length and not X, so this would potentially break if we did NOT specify a perfectly square world
+            switch (currentDirection) {
+                case 'up': {
+                    generator.gps[0] -= 1;
+                    if (generator.gps[0] < 0) generator.gps[0] = newWorldMap[0].length - 1;
+                    currentDirection = pickOne(['up', 'right', 'left']);
+                    break;
+                }
+                case 'right': {
+                    generator.gps[1] += 1;
+                    if (generator.gps[1] > newWorldMap[0].length - 1) generator.gps[1] = 0;
+                    currentDirection = pickOne(['up', 'right', 'down']);
+                    break;
+                }
+                case 'down': {
+                    generator.gps[0] += 1;
+                    if (generator.gps[0] > newWorldMap[0].length - 1) generator.gps[0] = 0;
+                    currentDirection = pickOne(['right', 'down', 'left']);
+                    break;
+                }
+                case 'left': {
+                    generator.gps[1] -= 1;
+                    if (generator.gps[1] < 0) generator.gps[1] = newWorldMap[0].length - 1;
+                    currentDirection = pickOne(['up', 'down', 'left']);
+                    break;
+                }
+                default: {
+                    // ah, we're on the first loop through, hopefully, sooooo:
+                    currentDirection = pickOne(['up', 'right', 'down', 'left']);
+                    break;
+                };
+            }
+    
+        } while (generator.numSeeds > 0);
+
+        // RESULT: everything below 'works' well enough in terms of snaking around and putting the proper number of everything down!
+        /*
+        
+        
+        */
+
+        currentDirection = null;
+
+        // for visualization purposes only at this stage; definitely refactor material once we have a client-side visualization tool
+        const tileRef = {
+            forest: 'forest',
+            wetland: 'wetland',
+            desert: 'desert',
+            freshwater: 'freshwater',
+            bumpy: 'bumpy'
+        }
+
+        // so we're definitely going to have to create an innerLandFinder fxn and pick from there
+        // innerLand: any flatland space at this step that has more flatland n, e, s, and w of it
+        // at this point, also, we have an array record of all our land spots, so can just shoot through real quick and make an innerTiles array
+        generator.record.forEach(flatlandTile => {
+            // tile should be a handy [y,x] [0][1]:
+            let x = flatlandTile[1];
+            let xRight = flatlandTile[1] + 1;
+            if (xRight >= mapSize) xRight = 0;
+            let xLeft = flatlandTile[1] - 1;
+            if (xLeft <= -1) xLeft = mapSize - 1;
+
+            let y = flatlandTile[0];
+            let yUp = flatlandTile[0] - 1;
+            if (yUp <= -1) yUp = mapSize - 1;
+            let yDown = flatlandTile[0] + 1;
+            if (yDown >= mapSize) yDown = 0;
+
+            if (newWorldMap[y][xRight] === '[]' && newWorldMap[y][xLeft] === '[]' && newWorldMap[yUp][x] === '[]' && newWorldMap[yDown][x] === '[]') generator.innerTiles.push(flatlandTile);
+        });
+
+        // ... actually all of this is moot-ish if we have most rivers be streams and have separate river/lake logic :P
+        // we have to decide if we want hills to be their own biome type OR a modifier to others
+        // it makes the most sense if hills can exist as a modifier/subtyping of other biomes, akshully... hrm
+
+        // along those lines, maybe having a 'height' attribute and having 'hilliness' or 'bumpiness' create a different tile if it's of certain... bumpitude
+        // also, painting in layers makes sense...
+        // which is to say, deciding on some attributes that are a substitution for weather or precursor to weather
+        // then we get lakes that can form in the 'wetter' squares by a certain chance, recording as they do and 'forcing' if falling below threshold
+        // the drier squares then have a chance at becoming desert, possibly also forcing to a threshold
+        // high lake squares then have water run down 
+
+        /*
+        
+            IF we do wet/dry and hot/cold, we can do a layered approach... first x, then y, then z, etc.
+
+            Well, what's the goal? Visually interesting, with 'blocks' and regions of various different biomes
+            - currently, we have a fairly high chance of getting a SINGLE block of a given biome
+            - we can use rando and for-loops instead of do-while to do some choppin'?
+        
+        */
+
+        // or we can just simulate all of the above, rejiggering biome concepts to just make something that's workable for play for now
+
+        
+        Object.keys(generator.tiles).forEach(biomeType => {
+            // console.log(`Now tackling ${biomeType} biome!`);
+
+            // hm, how would we encourage multiple seeds? single-seeding isn't quiiiite cutting it
+            let newGPS;
+
+            // scooting this down into the DO loop below after that first break causes a LOT more terrain variety, at the cost of sanity
+            if (biomeType === 'freshwater' && biomeType === 'bumpy') newGPS = pickOne(generator.innerTiles)
+            else newGPS = pickOne(generator.record);
+
+            do {
+                if (biomeType === 'flatland') break;
+
+ 
+
+                // still FAR too choppy... oh, yeah, it fires like a quadrillion times for some reason, huh.
+                
+                let numOfTilesToPlace = Math.floor(rando(generator.tiles[biomeType] / 5, generator.tiles[biomeType]));
+                console.log(`I think I will do ${numOfTilesToPlace} tiles for ${biomeType} this time through since we have ${generator.tiles[biomeType]} left.`);
+                // for (let i = 0; i <= numOfTilesToLoop; i++) {
+                //     if (newWorldMap[newGPS[0]][newGPS[1]] === 'flatland') {
+                //         newWorldMap[newGPS[0]][newGPS[1]] = tileRef[biomeType];
+                //         generator.tiles[biomeType] -= 1;
+                //         // if (generator.tiles[biomeType])
+                //         generator.tileRecord[biomeType].push([newGPS[0],newGPS[1]]);
+                //     }
+                // }
+                do {
+                    if (newWorldMap[newGPS[0]][newGPS[1]] === 'flatland') {
+                        newWorldMap[newGPS[0]][newGPS[1]] = tileRef[biomeType];
+                        generator.tiles[biomeType] -= 1;
+                        numOfTilesToPlace -= 1;
+                        // if (generator.tiles[biomeType])
+                        generator.tileRecord[biomeType].push([newGPS[0],newGPS[1]]);
+                    }
+                    switch (currentDirection) {
+                        case 'up': {
+                            newGPS[0] -= 1;
+                            if (newGPS[0] < 0) newGPS[0] = newWorldMap[0].length - 1;
+                            currentDirection = pickOne(['up', 'right', 'left']);
+                            break;
+                        }
+                        case 'right': {
+                            newGPS[1] += 1;
+                            if (newGPS[1] > newWorldMap[0].length - 1) newGPS[1] = 0;
+                            currentDirection = pickOne(['up', 'right', 'down']);
+                            break;
+                        }
+                        case 'down': {
+                            newGPS[0] += 1;
+                            if (newGPS[0] > newWorldMap[0].length - 1) newGPS[0] = 0;
+                            currentDirection = pickOne(['right', 'down', 'left']);
+                            break;
+                        }
+                        case 'left': {
+                            newGPS[1] -= 1;
+                            if (newGPS[1] < 0) newGPS[1] = newWorldMap[0].length - 1;
+                            currentDirection = pickOne(['up', 'down', 'left']);
+                            break;
+                        }
+                        default: {
+                            currentDirection = pickOne(['up', 'right', 'down', 'left']);
+                            break;
+                        };
+                    }
+                } while (numOfTilesToPlace > 0);
+
+
+                console.log(`Neato. After planting all of those, we only have ${generator.tiles[biomeType]} tiles left.`);
+
+
+                
+                
+                // technically the IF statements below only check Y length and not X, so this would potentially break if we did NOT specify a perfectly square world
+
+
+            } while (generator.tiles[biomeType] > 0);
+
+            // do {
+            //     if (biomeType === 'flatland') break;
+
+            //     if (newWorldMap[newGPS[0]][newGPS[1]] === 'flatland') {
+            //         newWorldMap[newGPS[0]][newGPS[1]] = tileRef[biomeType];
+            //         // biomeRecords[generator.type].push([generator.gps[0], generator.gps[1]]);
+            //         // generator.record.push([generator.gps[0], generator.gps[1]]);
+            //         generator.tiles[biomeType] -= 1;
+            //         // after subtracting, we should prooooobably add a zone-y record somewhere
+            //     }
+                
+                
+            //     // technically the IF statements below only check Y length and not X, so this would potentially break if we did NOT specify a perfectly square world
+            //     switch (currentDirection) {
+            //         case 'up': {
+            //             newGPS[0] -= 1;
+            //             if (newGPS[0] < 0) newGPS[0] = newWorldMap[0].length - 1;
+            //             currentDirection = pickOne(['up', 'right', 'left']);
+            //             break;
+            //         }
+            //         case 'right': {
+            //             newGPS[1] += 1;
+            //             if (newGPS[1] > newWorldMap[0].length - 1) newGPS[1] = 0;
+            //             currentDirection = pickOne(['up', 'right', 'down']);
+            //             break;
+            //         }
+            //         case 'down': {
+            //             newGPS[0] += 1;
+            //             if (newGPS[0] > newWorldMap[0].length - 1) newGPS[0] = 0;
+            //             currentDirection = pickOne(['right', 'down', 'left']);
+            //             break;
+            //         }
+            //         case 'left': {
+            //             newGPS[1] -= 1;
+            //             if (newGPS[1] < 0) newGPS[1] = newWorldMap[0].length - 1;
+            //             currentDirection = pickOne(['up', 'down', 'left']);
+            //             break;
+            //         }
+            //         default: {
+            //             currentDirection = pickOne(['up', 'right', 'down', 'left']);
+            //             break;
+            //         };
+            //     }
+                
+            // } while (generator.tiles[biomeType] > 0);
+
+        });
+
+        // aaaaand next up, check latitude rules to convert everything to their proper version?
+
+    });
+
+
+
+
+
+    /*
+    
+        so far so good!
+        rangeMax isn't in use yet; we may not even need it in most cases after all
+        we just 'snake 'til we're spent' and it creates some fun basic land shapes!
+
+        next up, we want to have the ability to continue to iterate over our world until we've exhausted all our generators filled with seeds
+        
+        let's plant some (T)rees next! 
+        ... so, it doesn't make sense to go back over the WHOLE map and look for our lands to randomly plant trees, as that feels exhaustive AND prone to 
+            creating very predictable patterns of trees on the first found shores... northward shore-trees only? no thanks!
+        
+        it makes more sense to create a 'record' of the land as we build it, then iterate through pickOne(array of coords) X times to seed a few forests
+
+
+        'shore' logic may be a little complicated, but we need beaches, yo! :P
+        ... also, we very often get cool 'landlocked oceans' just during gen, so a way to go through and desalinate them and designate them as lakes would be neat
+            - and give them a chance to 'search for the nearest ocean' to try to reach out with a river
+        ... likewise, having a way to procedurally generate relatively mini-landmasses here and there would be fun
+            - a way to go 'oh here's some ocean that's sufficiently not near anything, mark it as such'
+        
+        streams versus rivers?
+        ... rivers should be default 'impassable' and have some directionality, the direction of flow from an origin
+            - river origin by default should be a lake of at least two adjacent water squares
+
+
+        ... and after that, maybe see if we can't translate this into an 'explorable' map :D
+        ... that feels ideal, because my simplistic node-display map doesn't give a satisfying 'centered' experience
+        ... in such a small map (30 by 30 is TINY), it's hard to make multiple reasonably traversible/livable landmasses by Civ rules
+            - that said, having 'landmass gen' specifically attempt to distance the seeds from each other makes sense
+
+
+        of course, the final step in this is to actually generate tileArea data that's actually usable!
+
+    
+    */
+
+    /*
+
+        reminder: freshwater as it currently works just absolutely floods :P
+    
+        Hm. Do we need to reimagine the return as an object to include metadata, or is it fine to just throw the raw array of arrays around?
+
+        Can we save completed maps on the user's browser? That'd be quite handy, though we'd have to have ways to validate it hasn't changed.
+
+        Also, let us consider LEVEL RULES! What level is everything? How does it spawn? Does only the backend know?
+
+        
+    
+    */
+
+    return newWorldMap;
+}
+// ok, can console.table and as long as it's within a certain size we're golden... let's see what we can build!
+// createWorldMap();
+
+
+function rollWithinRange() {
+    /*
+    
+        Given a variable range of possible outcomes, pick from it! Rando and for-loop roll?
+        OR! forEach, if the range of possibilities comes in an array or is put into an array
+        -- relative weights
+
+        we'll have to make a few assumptions as to the kind of 'return' we want from this function and provide it the necessary pieces to get useful feedback
+        ... though that's true of any fxn, innit? :P
+    
+    */
+    //
 }
