@@ -931,21 +931,26 @@ class MuglinMob {
 class TileArea {
     constructor() {
         this.biome = null;
+        this.biomeType = null;
         this.description = ``;
         this.seedLevel = 1;
-        this.activeLevel = 1;
+        this.mobLevel = 1;
         this.threatLevel = 1; // how aggressive the inner mobs are?
         this.extroversion = 0; // thinking of a variable as for 'how often this tile attempts to do something to surrounding or nearby tiles'
         this.resources = {
-            metal: {quantity: 0, quality: 0, discovered: 0},
-            stone: {quantity: 0, quality: 0, discovered: 0},
-            gems: {quantity: 0, quality: 0, discovered: 0},
-            wood: {quantity: 0, quality: 0, discovered: 0},
-            water: {quantity: 0, quality: 0, discovered: 0},
-            herbs: {quantity: 0, quality: 0, discovered: 0},
-            game: {quantity: 0, quality: 1, discovered: 0},
+            metal: {quantity: 0, quality: 0},
+            stone: {quantity: 0, quality: 0},
+            gems: {quantity: 0, quality: 0},
+            wood: {quantity: 0, quality: 0},
+            water: {quantity: 0, quality: 0},
+            herbs: {quantity: 0, quality: 0},
+            game: {quantity: 0, quality: 0}, 
         },
         this.access = 0; // how easy it is to get into the goodies of the area?
+        this.explored = 0;
+        this.rivers = {n: 0, e: 0, s: 0, w: 0};
+        this.roads = {n: 0, e: 0, s: 0, w: 0};
+        this.shiny = {};
         this.structs = {};
         this.pointsOfInterest = {};
         this.mobTypes = [];
@@ -953,46 +958,393 @@ class TileArea {
 
     level(level) {
         this.seedLevel = level;
-        this.activeLevel = level;
+        this.mobLevel = level;
         return this;
     }
 
-    biome(biome) {
+    setBiome(biome) {
         /*
-        
-            Real quick... what do we want to mean by quantity and quality?
-            QUALITY = LEVEL OF MATERIAL, that's 'easy'
-            Quantity is how much amount can be harvested per harvest action per tick, modified upward somehow by discovered #
-            ... chance that at 0 discovered, quantity of 1 is basically a fool's errand
 
-            ... can derive special biome-only materials from this data, or make it explicit, or both
+            FOREST
+                - wood (temperate forest)
+                - jungle (tropical rainforest, essentially)
+                - taiga (boreal/northern/cold forest)
+            WETLAND
+                - swamp (forest wetlands, slow moving waters with woody plants such as cypress and mangrove ... we'll call this tropical for TC)
+                - marsh (same water as swamp but softer, non-woody; temperate wetlands, we'll say)
+                - bog (mostly dead stuff, generally higher up; we'll call this the arctic version)
+            FLATLAND
+                - savanna (tree-studded/'tropical' grasslands)
+                - plain (or prairie; short to tall grasses, flowers, and herbs, but no trees due to not quite enough rainfall, just a tad too dry)
+                - tundra (flat, cold, permafrost under the soil makes trees a no-go, grass and moss grow during short summer, birdless in winter, li'l burrowing game present)
+            DESERT
+                - arctic (tons of water... locked in ice, so plants and animals ain't getting any)
+                - dunescape (sandy, waterless, low vegetation, tropical)
+                - desert (rockier, dotted with grasses and shrubs, 'temperate')
+            MARINE
+                - sea (near land)
+                - ocean (open water)
+            FRESHWATER
+                - cruisewater
+                - lake
+                - frostwater
+                - river (not really its own tile so much as an overlay/modifier)
+            BUMPY (not actually a biome type IRL :P)
+                - greenhill
+                - hill
+                - frostmound
+                - mountain (REAL high hills :P... impassable by default, they're so very, very high and rocky, after all :P)
+
+        
+                TIERS instead of level for materials? ... basically less granular, and easier to account for
+                ... range of stuff can be found, which is modified by quality (some stuff will almost or actually never be found at low 'quality' ratings)
+
+            NEW:
+            - biome is basically a tileRef as well as a typing ref for events/seeding/etc.
+            - extoversion can be kept, but not sure if I'll end up using it, or anytime soon if so
+            - probably do away with 'discovered' within resources, and add discovered to the tile instead for 'roll to find neat things'
+            - higher discovered could also boost production from that tile
+            - township tile gets a big ol' discovered boost
+            - 'shiny' refers to special, map-viewable special effects on the tile, like METALBOOST in a mountain
+            - shiny effects are specific to their biome and represent the possibility of a 'rare' sub-biome type, in a way
+            
+            let's consider removing the 'rando' part of tile generation, and segue that sort of inflection over toward shiny effects
         
         */
         this.biome = biome;
-        // we'll start with the 'starter stuff'
-        const lowQuantity = rando(1,3);
-        const lowQuality = Math.floor(this.seedLevel / rando(3.5,5));
-        const midQuantity = rando(3,5) + Math.floor(Math.sqrt(this.seedLevel));
-        const midQuality = Math.floor(this.seedLevel / rando(1.5,3));
-        const highQuantity = rando(5,7) + Math.floor(Math.sqrt(this.seedLevel));
-        const highQuality = Math.floor(this.seedLevel / rando(0.8,1.2));
+
+        // hm, quality level... I like the idea of it, but how is it applied, especially to 'township materials'?
+        // awkwardly, at particularly higher levels, the difference between a low-level quantity and a high-level quantity source is eroded to almost nothing
+        // feels a bit 'blocky,' so may want to go back and add more variation/better balance later
+        const lowQuantity = 1 + Math.floor(this.seedLevel / 10);
+        const lowQuality = Math.floor(this.seedLevel / 4) + 1;
+        const midQuantity = 2 + Math.floor(this.seedLevel / 10);
+        const midQuality = Math.floor(this.seedLevel / 2.5) + 1;
+        const highQuantity = 3 + Math.floor(this.seedLevel / 10);
+        const highQuality = Math.floor(this.seedLevel / 1);
         
+        // values of '0' despite having a quality score indicates that there is 0 available by default; requires special treatment, such as mining to expose the goodies
         switch (biome) {
-            case 'grassland': {
-                // can change the description a bit based on level... eventually :P
+            case 'savanna': {
+                this.biomeType = 'flatland';
                 this.description = `A lush grassland extends as far as the eye can see, dotted with shading trees, mighty bushes, and abundant life.`;
                 this.resources = {
-                    metal: {quantity: lowQuantity, quality: lowQuality, discovered: 0},
-                    stone: {quantity: lowQuantity, quality: lowQuality, discovered: 0},
-                    gems: {quantity: lowQuantity, quality: lowQuality, discovered: 0},
-                    wood: {quantity: midQuantity, quality: midQuality, discovered: 0},
-                    water: {quantity: midQuantity, quality: midQuality, discovered: 0},
-                    herbs: {quantity: midQuantity, quality: midQuality, discovered: 0},
-                    game: {quantity: highQuantity, quality: midQuality, discovered: 0},              
+                    metal: {quantity: 0, quality: lowQuality},
+                    stone: {quantity: 0, quality: lowQuality},
+                    gems: {quantity: 0, quality: lowQuality},
+                    wood: {quantity: lowQuantity, quality: midQuality},
+                    water: {quantity: lowQuantity, quality: midQuality},
+                    herbs: {quantity: lowQuantity, quality: midQuality},
+                    game: {quantity: midQuantity, quality: midQuality},
                 };
+
+                this.mobs = [];
+                return this;
+            }
+            case 'plain': {
+                this.biomeType = 'flatland';
+                this.description = `An expansive, mostly flat field of grasses, short and tall, dotted with flowers and herbs without a tree in sight.`;
+                this.resources = {
+                    metal: {quantity: 0, quality: lowQuality},
+                    stone: {quantity: 0, quality: lowQuality},
+                    gems: {quantity: 0, quality: lowQuality},
+                    wood: {quantity: 0, quality: midQuality},
+                    water: {quantity: lowQuantity, quality: midQuality},
+                    herbs: {quantity: midQuantity, quality: highQuality},
+                    game: {quantity: highQuantity, quality: midQuality},
+                };        
+                return this;        
+            }
+            case 'tundra': {
+                this.biomeType = 'flatland';
+                this.description = ``;
+                this.resources = {
+                    metal: {quantity: 0, quality: midQuality},
+                    stone: {quantity: 0, quality: lowQuality},
+                    gems: {quantity: 0, quality: lowQuality},
+                    wood: {quantity: 0, quality: midQuality},
+                    water: {quantity: 0, quality: highQuality},
+                    herbs: {quantity: lowQuantity, quality: highQuality},
+                    game: {quantity: lowQuantity, quality: lowQuality},
+                };
+                return this;
+            }
+
+            case 'jungle': {
+                this.biomeType = 'forest';
+                this.description = `A near-constant cacophony of sounds surrounds you in this dense maze of vibrant trees and plantlife.`;
+                this.resources = {
+                    metal: {quantity: 0, quality: midQuality},
+                    stone: {quantity: 0, quality: lowQuality},
+                    gems: {quantity: 0, quality: lowQuality},
+                    wood: {quantity: highQuantity, quality: highQuality},
+                    water: {quantity: lowQuantity, quality: midQuality},
+                    herbs: {quantity: highQuantity, quality: highQuality},
+                    game: {quantity: midQuantity, quality: highQuality},
+                };
+                return this;
+            }
+            case 'wood': {
+                this.biomeType = 'forest';
+                this.description = `A verdant and relatively peaceful forest with wide, easily-traversed pathways between the many tall trees.`;
+                this.resources = {
+                    metal: {quantity: 0, quality: lowQuality},
+                    stone: {quantity: 0, quality: lowQuality},
+                    gems: {quantity: 0, quality: lowQuality},
+                    wood: {quantity: highQuantity, quality: highQuality},
+                    water: {quantity: lowQuantity, quality: midQuality},
+                    herbs: {quantity: midQuantity, quality: midQuality},
+                    game: {quantity: midQuantity, quality: midQuality},
+                };
+                return this;
+            }
+            case 'taiga': {
+                this.biomeType = 'forest';
+                this.description = `Tall boreal trees grow in every direction. It's a bit chilly.`;
+                this.resources = {
+                    metal: {quantity: 0, quality: highQuality},
+                    stone: {quantity: 0, quality: midQuality},
+                    gems: {quantity: 0, quality: lowQuality},
+                    wood: {quantity: highQuantity, quality: highQuality},
+                    water: {quantity: lowQuantity, quality: midQuality},
+                    herbs: {quantity: lowQuantity, quality: midQuality},
+                    game: {quantity: lowQuantity, quality: highQuality},
+                };
+                return this;
+            }
+
+            case 'swamp': {
+                this.biomeType = 'wetland';
+                this.description = `It's rather wet. And woody.`;
+                this.resources = {
+                    metal: {quantity: 0, quality: lowQuality},
+                    stone: {quantity: 0, quality: lowQuality},
+                    gems: {quantity: 0, quality: lowQuality},
+                    wood: {quantity: midQuantity, quality: lowQuality},
+                    water: {quantity: midQuantity, quality: lowQuality},
+                    herbs: {quantity: lowQuantity, quality: midQuality},
+                    game: {quantity: lowQuantity, quality: highQuality},
+                };
+                return this;
+            }
+            case 'marsh': {
+                this.biomeType = 'wetland';
+                this.description = `It's so very damp here. But not particularly woody.`;
+                this.resources = {
+                    metal: {quantity: 0, quality: lowQuality},
+                    stone: {quantity: 0, quality: lowQuality},
+                    gems: {quantity: lowQuantity, quality: lowQuality},
+                    wood: {quantity: 0, quality: lowQuality},
+                    water: {quantity: midQuantity, quality: lowQuality},
+                    herbs: {quantity: lowQuantity, quality: midQuality},
+                    game: {quantity: lowQuantity, quality: lowQuality},
+                };
+                return this;
+            }
+            case 'bog': {
+                this.biomeType = 'wetland';
+                this.description = `Just a lot of water and muck.`;
+                this.resources = {
+                    metal: {quantity: 0, quality: lowQuality},
+                    stone: {quantity: 0, quality: lowQuality},
+                    gems: {quantity: 0, quality: lowQuality},
+                    wood: {quantity: 0, quality: lowQuality},
+                    water: {quantity: midQuantity, quality: lowQuality},
+                    herbs: {quantity: lowQuantity, quality: midQuality},
+                    game: {quantity: lowQuantity, quality: highQuality},
+                };
+                return this;
+            }
+
+            case 'greenhill': {
+                this.biomeType = 'bumpy';
+                this.description = `Rolling greens hills, dotted with abundant vegetation, define this area.`;
+                this.resources = {
+                    metal: {quantity: midQuantity, quality: midQuality},
+                    stone: {quantity: lowQuantity, quality: highQuality},
+                    gems: {quantity: lowQuantity, quality: lowQuality},
+                    wood: {quantity: lowQuantity, quality: midQuality},
+                    water: {quantity: 0, quality: midQuality},
+                    herbs: {quantity: lowQuantity, quality: midQuality},
+                    game: {quantity: lowQuantity, quality: lowQuality},
+                };
+                return this;
+            }
+            case 'hill': {
+                this.biomeType = 'bumpy';
+                this.description = `A rocky collection of hills dotted with occasional hardy trees and tenacious plantlife.`;
+                this.resources = {
+                    metal: {quantity: midQuantity, quality: midQuality},
+                    stone: {quantity: midQuantity, quality: midQuality},
+                    gems: {quantity: lowQuantity, quality: midQuality},
+                    wood: {quantity: lowQuantity, quality: midQuality},
+                    water: {quantity: 0, quality: midQuality},
+                    herbs: {quantity: 0, quality: midQuality},
+                    game: {quantity: 0, quality: lowQuality},
+                };
+                return this;
+            }
+            case 'frostmound': {
+                this.biomeType = 'bumpy';
+                this.description = `A craggy, desolate series of freezing hills, all but devoid of apparent life.`;
+                this.resources = {
+                    metal: {quantity: midQuantity, quality: highQuality},
+                    stone: {quantity: midQuantity, quality: midQuality},
+                    gems: {quantity: lowQuantity, quality: highQuality},
+                    wood: {quantity: 0, quality: midQuality},
+                    water: {quantity: 0, quality: midQuality},
+                    herbs: {quantity: 0, quality: lowQuality},
+                    game: {quantity: 0, quality: midQuality},
+                };
+                return this;
+            }
+
+            case 'mountain': {
+                this.biomeType = 'mountain';
+                this.description = `A massive mountain, effectively impassable, but teeming with potential treasures of the earth.`;
+                this.resources = {
+                    metal: {quantity: highQuantity, quality: highQuality},
+                    stone: {quantity: highQuantity, quality: highQuality},
+                    gems: {quantity: midQuantity, quality: highQuality},
+                    wood: {quantity: 0, quality: lowQuality},
+                    water: {quantity: 0, quality: midQuality},
+                    herbs: {quantity: 0, quality: lowQuality},
+                    game: {quantity: 0, quality: lowQuality},
+                };
+                return this;
+            }
+
+            case 'dunescape': {
+                this.biomeType = 'desert';
+                this.description = `Gently rolling hills of sand as far as the eye can see, with no apparent hope for a solid meal or hearty drink.`;
+                this.resources = {
+                    metal: {quantity: 0, quality: highQuality},
+                    stone: {quantity: 0, quality: lowQuality},
+                    gems: {quantity: 0, quality: highQuality},
+                    wood: {quantity: 0, quality: lowQuality},
+                    water: {quantity: 0, quality: lowQuality},
+                    herbs: {quantity: 0, quality: lowQuality},
+                    game: {quantity: 0, quality: lowQuality},
+                };
+                return this;
+            }
+            case 'desert': {
+                this.biomeType = 'desert';
+                this.description = `A rocky desert with collections of brave and hardy grasses and shrubs to be found here and there.`;
+                this.resources = {
+                    metal: {quantity: 0, quality: midQuality},
+                    stone: {quantity: lowQuality, quality: midQuality},
+                    gems: {quantity: 0, quality: lowQuality},
+                    wood: {quantity: 0, quality: midQuality},
+                    water: {quantity: 0, quality: midQuality},
+                    herbs: {quantity: lowQuantity, quality: lowQuality},
+                    game: {quantity: lowQuantity, quality: lowQuality},
+                };
+                return this;
+            }
+            case 'arctic': {
+                this.biomeType = 'desert';
+                this.description = `Snow and ice and little else meets the eye here.`;
+                this.resources = {
+                    metal: {quantity: 0, quality: highQuality},
+                    stone: {quantity: 0, quality: midQuality},
+                    gems: {quantity: 0, quality: highQuality},
+                    wood: {quantity: 0, quality: lowQuality},
+                    water: {quantity: 0, quality: highQuality},
+                    herbs: {quantity: 0, quality: lowQuality},
+                    game: {quantity: 0, quality: midQuality},
+                };
+                return this;
+            }
+
+            case 'cruisewater': {
+                this.biomeType = 'freshwater';
+                this.description = `If a rocklike gentleman offered you a ride on his adventure boat here, you'd be wise to accept.`;
+                this.resources = {
+                    metal: {quantity: 0, quality: lowQuality},
+                    stone: {quantity: 0, quality: lowQuality},
+                    gems: {quantity: 0, quality: midQuality},
+                    wood: {quantity: 0, quality: lowQuality},
+                    water: {quantity: highQuantity, quality: midQuality},
+                    herbs: {quantity: 0, quality: midQuality},
+                    game: {quantity: midQuantity, quality: midQuality}, // fishy leather :P
+                };
+                return this;
+            }
+            case 'lake': {
+                this.biomeType = 'freshwater';
+                this.description = `An apparently serene body of glasslike water. It appears refreshing.`;
+                this.resources = {
+                    metal: {quantity: 0, quality: lowQuality},
+                    stone: {quantity: 0, quality: lowQuality},
+                    gems: {quantity: 0, quality: midQuality},
+                    wood: {quantity: 0, quality: lowQuality},
+                    water: {quantity: highQuantity, quality: midQuality},
+                    herbs: {quantity: 0, quality: midQuality},
+                    game: {quantity: midQuantity, quality: midQuality},
+                };
+                return this;
+            }
+            case 'frostwater': {
+                this.biomeType = 'freshwater';
+                this.description = `A freezing body of freshwater, a sheen of ice covering potentially all of its surface from your vantage and making it difficult to seek hydration.`;
+                this.resources = {
+                    metal: {quantity: 0, quality: lowQuality},
+                    stone: {quantity: 0, quality: lowQuality},
+                    gems: {quantity: 0, quality: midQuality},
+                    wood: {quantity: 0, quality: lowQuality},
+                    water: {quantity: lowQuality, quality: highQuality},
+                    herbs: {quantity: 0, quality: lowQuality},
+                    game: {quantity: 0, quality: midQuality},
+                };
+                return this;
+            }
+            
+            case 'sea': {
+                this.biomeType = 'marine';
+                this.description = `The shallow ocean waters found near the shore. Conceivably, you could go for a nice swim here, and at times you can see sealife darting to and fro just beneath the surface.`;
+                this.resources = {
+                    metal: {quantity: 0, quality: lowQuality},
+                    stone: {quantity: 0, quality: lowQuality},
+                    gems: {quantity: 0, quality: lowQuality}, // eh maybe pearls and such, if we want to 'count' that
+                    wood: {quantity: 0, quality: lowQuality},
+                    water: {quantity: 0, quality: lowQuality}, // saltwater doesn't count for township water needs
+                    herbs: {quantity: 0, quality: lowQuality},
+                    game: {quantity: midQuantity, quality: midQuality}, // decent source of fishing, though
+                };
+                return this;
+            }
+            case 'ocean': {
+                this.biomeType = 'marine';
+                this.description = `It's quite damp. Supremely moist, all the way down.`;
+                this.resources = {
+                    metal: {quantity: 0, quality: lowQuality},
+                    stone: {quantity: 0, quality: lowQuality},
+                    gems: {quantity: 0, quality: lowQuality},
+                    wood: {quantity: 0, quality: lowQuality},
+                    water: {quantity: 0, quality: lowQuality}, // saltwater again
+                    herbs: {quantity: 0, quality: lowQuality},
+                    game: {quantity: lowQuantity, quality: highQuality}, // if you can get out there, you can certainly catch some whoppers
+                };
+                return this;
+            }
+
+            case 'river': {
+                // I think river is now going to be a sub-quality of the tile, like roads and such
+                // so it won't really 'exist' in this section, going forward
+                break;
+            }
+
+            default: {
+                console.log(`If this message is being seen, it's because someone tried to set a biome type that doesn't exist??`);
+                break;
+            };
+        }
+        return this;
+
                 /*
                 
-                    MOB THINKIN TIME
+                    MOB THINKIN TIME - for when we be seedin' them mobs!
                     muglin - quick, vicious, but small and relatively frail; strong, impactful strikes can rattle them pretty easily
                         - like to be sneaky and indirect... or swarm, they're fine with swarming
                     troll - big, thick, with the tendency to regenerate rapidly unless this ability is halted with (usually) fire (and/or other magic)
@@ -1015,43 +1367,11 @@ class TileArea {
                         - so mob with weight 50 will always spawn 2 exactly; weight 60 has 40 left over, and has a 40/60 chance of spawning a second
                         - special circumstances can override this 'manually' OR chance the weight limit of the battle
                         - standard encounter = 100, at any rate
+                        ... can also do weight-by-level, but that might require some more mathing to make sure that works out in a reasonably well-scaling way
 
 
                 
                 */
-                this.mobs = [];
-            }
-            case 'plains': {}
-            case 'forest': {
-                this.description = `A verdant and relatively peaceful forest with wide, easily-traversed pathways between the many tall trees.`;
-                this.resources = {
-                    metal: {quantity: lowQuantity, quality: midQuality, discovered: 0},
-                    stone: {quantity: midQuantity, quality: lowQuality, discovered: 0},
-                    gems: {quantity: lowQuantity, quality: midQuality, discovered: 0},
-                    wood: {quantity: highQuantity, quality: highQuality, discovered: 0},
-                    water: {quantity: midQuantity, quality: midQuality, discovered: 0},
-                    herbs: {quantity: highQuantity, quality: highQuality, discovered: 0},
-                    game: {quantity: midQuantity, quality: highQuality, discovered: 0},
-                };
-                this.mobs = [];
-            }
-            case 'jungle': {}
-            case 'swamp': {}
-            case 'hills': {
-                // doop2
-            }
-            case 'mountains': {
-                // doop3
-            }
-            case 'tundra': {}
-            case 'arctic': {}
-            case 'river': {
-                // doop also? perhaps
-            }
-            case 'ocean': {}
-            default: break;
-        }
-        return this;
     }
 
     init() {
@@ -2270,6 +2590,7 @@ class Struct {
 class NexusStruct {
     constructor() {
         this.type = 'nexus';
+        this.id = null;
         this.soulRef = null;
         this.nickname = `The Nexus Crystals`;
         this.description = `A blossom of milky blue-white crystal, standing twice the height of a tall man, that acts as the heart of the township.`,
@@ -2281,6 +2602,8 @@ class NexusStruct {
         this.dimensions = {x: 1, y: 1, z: 1};
         this.mapSpot = null;
         this.weight = 0;
+        this.currentWorldID = null;
+        this.currentGPS = null;
         this.buildLimit = 1;
         this.operation = {min: 0, current: 0, cap: 0, slots: 0};
         this.npcSlots = null;
@@ -2292,6 +2615,8 @@ class NexusStruct {
     init(soul) {
         this.soulRef = soul.name;
         this.nickname = `${soul.township.nickname}'s Nexus`;
+        this.id = generateRandomID('nexus');
+        allSouls[this.soulRef].township.structs[this.id] = this;
         return this;
     }
 
@@ -2371,6 +2696,7 @@ let allSouls = {
         }
     }
 };
+let allWorlds = {};
 let allChatventures = {};
 let allSecrets = {}; // hm, could do a 'version' variable in here to hook in version checking and update logistics
 
@@ -2900,7 +3226,7 @@ io.on('connection', (socket) => {
                 nickname: 'Zenithica',
                 description: allSouls['Zenithica'].township.townMap.description,
                 history: allSouls['Zenithica'].township.history.slice(-150),
-                structs: allSouls['Zenithica'].township.townMap.structs
+                structs: allSouls['Zenithica'].township.structs
             };
             return socket.emit('location_update', initialLocationData);
         }
@@ -2918,7 +3244,7 @@ io.on('connection', (socket) => {
                 nickname: allSouls[thisPlayer.playStack.gps].township.nickname,
                 description: allSouls[thisPlayer.playStack.gps].township.townMap.description,
                 history: allSouls[thisPlayer.playStack.gps].township.history.slice(-150),
-                structs: allSouls[thisPlayer.playStack.gps].township.townMap.structs
+                structs: allSouls[thisPlayer.playStack.gps].township.structs
             };
             if (thisPlayer?.chatventure != null) thisPlayer.chatventure = allChatventures[thisPlayer.chatventure.id];
             socket.emit('player_update', sanitizePlayerObj(thisPlayer));
@@ -2939,7 +3265,7 @@ io.on('connection', (socket) => {
                     nickname: allSouls[thisPlayer.playStack.gps].township.nickname,
                     description: allSouls[thisPlayer.playStack.gps].township.townMap.description,
                     history: allSouls[thisPlayer.playStack.gps].township.history.slice(-150),
-                    structs: allSouls[thisPlayer.playStack.gps].township.townMap.structs
+                    structs: allSouls[thisPlayer.playStack.gps].township.structs
                 };
                 if (thisPlayer?.chatventure != null) thisPlayer.chatventure = allChatventures[thisPlayer.chatventure.id];
                 socket.emit('player_update', sanitizePlayerObj(thisPlayer));
@@ -2974,14 +3300,15 @@ io.on('connection', (socket) => {
 
     socket.on('request_a_map', request => {
         // !MHRmap
-        let newMap = createWorldMap();
+        // let newMap = createWorldMap();
+        let newMap = createWorldMap({size: 'small', level: 5, continents: 1, rangeMax: true});
         let newSpawnPoint = [0,0];
         
         do {
             newSpawnPoint = [rando(0, newMap[0].length - 1), rando(0, newMap[0].length - 1)];
             console.log(`I do loop! Newspawnpoint is `, newSpawnPoint)
             console.log(`Looks like the square we're on is of the type ${newMap[newSpawnPoint[0]][newSpawnPoint[1]]}`)
-        } while (newMap[newSpawnPoint[0]][newSpawnPoint[1]] === 'ocean');
+        } while (newMap[newSpawnPoint[0]][newSpawnPoint[1]].biome === 'ocean');
         console.log(`Picked a delightful new spawn point for you! It is `, newSpawnPoint);
         socket.emit('new_play_map', {mapData: newMap, spawnPoint: newSpawnPoint});
     });
@@ -2994,7 +3321,7 @@ io.on('connection', (socket) => {
         // console.log(`STRUCT INTERACTION REQUEST. structToInteract is `, structToInteract);
         
         // ok! this is working great so far. 
-        structBlueprints[structToInteract.type][interaction](thisPlayer, thisPlayer.township.townMap.structs[structToInteract.type]);
+        structBlueprints[structToInteract.type][interaction](thisPlayer, thisPlayer.township.structs[structToInteract.type]);
 
         // what should this socket return? anything in particular? let's brainstorm...
         /*
@@ -3337,7 +3664,8 @@ io.on('connection', (socket) => {
 
         // party members! it's soon to be a thing! party up!
         // party: {leader: true, suspended: false, slotRef: 0, comp: []}
-        brandNewPlayer.party = {leader: true, suspended: false, slotRef: 0, comp: [brandNewPlayer]};
+        // so we get a circular reference error throwing ourselves right into our own party like that. makes sense. whoops!
+        // brandNewPlayer.party = {leader: true, suspended: false, slotRef: 0, comp: [brandNewPlayer]};
 
         // HERE: we know their class, so we can apply the appropriate mods
         brandNewPlayer.currentClass = {main: brandNewPlayer.class};
@@ -3391,87 +3719,29 @@ io.on('connection', (socket) => {
             aesthetic: {}, // for changing look of the chatroom around, ultimately
             npcs: {},
             vibe: {}, // vibe changes based on available structures as well as npc's and their 'presence'/influence
+            structs: {}, // I live all the way out here now :P
             townMap: {
                 description: `You are in a small township governed by ${brandNewPlayer.name}. It is currently rather bare.`,
-                structs: {
-                    nexus: {
-                        nickname: `${brandNewPlayer.name}'s Town Nexus`,
-                        description: 'A jagged crownlike blossom of translucent blue crystal, standing twice the height of a tall man, that acts as the heart of the township.',
-                        innerDescription: 'How did you even get IN here? Crystals! Crystals everywhere!',
-                        level: 0,
-                        exp: 0,
-                        type: 'nexus',
-                        interactions: {},
-                        icon: {},
-                        gps: {},
-                        dimensions: {x: 1, y: 1, z: 1},
-                        construction: {rawCrystal: 10},
-                        boosts: {township: {}, player: {}},
-                        inventory: {construction: {}},
-                        income: {},
-                        maintenance: {}
-                    }
-                },
+                // structs: {
+                //     nexus: {
+                //         nickname: `${brandNewPlayer.name}'s Town Nexus`,
+                //         description: 'A jagged crownlike blossom of translucent blue crystal, standing twice the height of a tall man, that acts as the heart of the township.',
+                //         innerDescription: 'How did you even get IN here? Crystals! Crystals everywhere!',
+                //         level: 0,
+                //         exp: 0,
+                //         type: 'nexus',
+                //         interactions: {},
+                //         icon: {},
+                //         gps: {},
+                //         dimensions: {x: 1, y: 1, z: 1},
+                //         construction: {rawCrystal: 10},
+                //         boosts: {township: {}, player: {}},
+                //         inventory: {construction: {}},
+                //         income: {},
+                //         maintenance: {}
+                //     }
+                // },
                 map: []
-            },
-            localMap: {
-                // refactoring to localMap for text-based version; will use worldMap data instead for graphical version 
-                // nexus level can open up more 'explorable slots'
-                // this is just the 'initial zone' data that the player can wiff around with
-                // can incept the concepts that will later move on into the g-ver
-                // ... probably should have these become their own class TileArea, so we can set that up shortly here
-                // !MHRlocalMap
-                areas: {
-                    grasslands: {
-                        biome: 'plains', // basis for how this area 'responds' to different attempts to alter it, such as irrigation, mining, etc.
-                        description: ``,
-                        seedThreatLevel: 1, // the 'average' or expected threat level seed; kept around so that even in highly controlled scenarios, can still 'farm' at-level encounters
-                        activeThreatLevel: 1, // modded through activity, structs, etc.
-                        resources: {
-                            metal: {quantity: 1, quality: 1, accessibility: 100}, // to help roll for 'whatchu get' per pulse; can focus on 'higher quality' for a quantity hit
-                            gems: {quantity: 1, quality: 1, accessibility: 100},
-                            wood: {quantity: 1, quality: 1, accessibility: 100},
-                            game: {quantity: 2, quality: 1, accessibility: 100},
-                            herbs: {quantity: 2, quality: 1, accessibility: 100},
-                            water: {quantity: 1, quality: 1, accessibility: 100},
-                            stone: {quantity: 1, quality: 1, accessibility: 100},
-                        },
-                        access: 50, // may rename, but how 'within reach' this area is to the township for resource gathering purposes, scale of 0 - 100?
-                        structs: {
-                            // capacity to build up structs in these localMap zones based on various township qualities
-                            // some abandoned or natural structs can generate sometimes
-                            // can cheerfully include meta-structs such as other townships (in the future) or encampments
-                        },
-                        pointsOfInterest: {
-                            // loose term for now, but denoting special places that can be explored/interacted with/chatventured around
-                        },
-                        mobTypes: {
-                            // mobTypes can, depending on various factors, have mods to their level range, and possibly special extra flags/weights added to them
-                            // if no mobTypes are specified, HUSKS IT IS, with wildcard chance to encounter something truly random and bizarre
-                            // group likelihood behavior can be defined here as well
-                            // 'biome-type' mobs possible, such as wildland muglins, forest trolls, etc.
-                        }
-                    },
-                    hills: {
-                        biome: 'hills',
-                        description: ``,                        
-                        seedThreatLevel: 5,                     
-                        activeThreatLevel: 5,
-                    },
-                    forest: {
-                        biome: 'forest',
-                        description: ``,                        
-                        seedThreatLevel: 10,
-                        activeThreatLevel: 10,
-                    },
-                    mountain: {
-                        biome: 'mountain',
-                        description: ``,                        
-                        seedThreatLevel: 25,
-                        activeThreatLevel: 25,
-                    }
-                }
-                // map: []
             },
             population: 0,
             events: {},
@@ -3479,18 +3749,19 @@ io.on('connection', (socket) => {
             lastTick: null
         };
         brandNewPlayer.township = {...brandNewTownship};
+        
         // HERE: use most current struct-placing model to place starting structs
         // latest: probably going to go with struct-specific classes instead of blueprints-based base Struct class
-        brandNewPlayer.township.townMap.structs.perimeter = new Struct(structBlueprints.perimeter);
+        brandNewPlayer.township.structs.perimeter = new Struct(structBlueprints.perimeter);
         // tavern goes here
         // classBuilding goes here
 
 
 
         // HERE: then whip through all those structs and apply the structBlueprints[structType].init(building, area) to give them their starting 'stuff' where applicable
-        Object.keys(brandNewPlayer.township.townMap.structs).forEach(structID => {
+        Object.keys(brandNewPlayer.township.structs).forEach(structID => {
             // NOTE: we can get away with this less specific calling of structID rather than digging up type because upon init all these ids === type
-            structBlueprints[structID].init(brandNewPlayer.township.townMap.structs[structID], brandNewPlayer.township);
+            structBlueprints[structID].init(brandNewPlayer.township.structs[structID], brandNewPlayer.township);
         });
 
         // HERE: 'read the room' and throw some NPC's down :P
@@ -3505,19 +3776,6 @@ io.on('connection', (socket) => {
         
         */
 
-        // ehhhhhhh
-        brandNewPlayer.mods = {
-            spellCraft: {
-                meta: {power: 0, precisionL: 0, cost: 0, speed: 0},
-
-            }
-        };
-
-        // for new ability learning!
-        // doing a 'blank' init now, and then can go through 'starter class skills' and add their values in
-        brandNewPlayer.skills = {
-            spellcraft: 0,
-        };
 
         // HERE: init their 'derived' stats at base... hp, maxhp, mp, maxmp, atk, def, mag, res, etc. from core stats
         // consider any relevant abilities
@@ -3623,12 +3881,13 @@ io.on('connection', (socket) => {
         // the power of crystalline memory stores objects, NPC's, maybe even townships in perpetuity under the right conditions
         brandNewPlayer.memories = {};
 
-        console.log(`Hi! Here's the current working model for brandNewPlayer: `, brandNewPlayer);
+        // console.log(`Hi! Here's the current working model for brandNewPlayer: `, brandNewPlayer);
 
         const newPlayerToken = craftAccessToken(brandNewPlayer.name);
-        
+        //
         socket.join(brandNewPlayer.name);
         allSouls[brandNewPlayer.name] = JSON.parse(JSON.stringify(brandNewPlayer));
+        let newNexus = new NexusStruct().init(brandNewPlayer);
 
         // actually, the PARTY ref will be stale due to the parsing... so go back and 'refresh' intended object references, just in case
         // what other elements need this treatment?
@@ -3636,65 +3895,15 @@ io.on('connection', (socket) => {
 
         thisPlayer = allSouls[brandNewPlayer.name];
 
+        // !MHRbrandnewplayer
+        // okiedokie, so when they first start out, they should have their own personal little tutorial world
+        // let's add some extra logic to make that a single-landmass world of low level (5) and add 'township placement' automagically
+        // having a fxn for that would be best, however, since it'll be something that we do every so often
+        // once the world exists, pop it into allWorlds, and have our TOWNSHIP GOES INTO WORLD fxn reference each other
+
         // HERE: send token and player data down using the sanitizePlayerObj fxn
         // we'll probably set up a unique socket event so we can initialize the first Chatventure
-        // for now, we can make it an uneventful 'Chatventure' just to create scaffolding for Chatventure events, then go test chattiness
-
-        /*
-        
-        FIRST CHATVENTURE - how do these work, how are they generally formatted?
-        "Choose Your Own Adventure" concept
-        ... with elements of CHATTING, because Chatventure, y'all
-
-        so we need to generate a chatventureID and Object, join that chatventureID so we can get pings from it in single and multiplayer
-
-        LET US DEFINE THE CHATVENTURE OBJECT! woo!
-        ... Chatventure class should probably have built-in methods for handling choice, initializing combat and AI, etc.
-        chatventureObj = {
-            chatventureID: 'doopdedoo',
-            participants: [], // we'll assume participants[0] is the leader
-            companions: [], // npc allies of various stripes can live here; vibrant mobiles eventually, but even basic stats and AI would be pretty impressive for now
-            at: 'init', // key value of the current step
-            state: 'choice', // may not need this... maybe for dynamic stuff like battle vs battleConclusion
-            arena: {}, // ongoing battle data goes here; with every substantive combat action, victory/loss conditions should probably be checked
-
-            'init': {
-                description: `You are standing in a place. You see a dangerous thing lurking menacingly! What do you do?`,
-                type: 'choice', // what sort of situation prep and overlay we get
-                areaData: {},
-                prompts: [{
-                    echo: `Fighting is the only option. Destroy it!`, 
-                    goto: '1a'
-                }, {
-                    echo: `Heck naw, not being paid for this. Book it, FLEE!`,
-                    goto: '1b'
-                }]
-            },
-
-            '1a': {
-                description: `You chose to FIGHT! It's a battleground!`,
-                type: 'battle',
-                areaData: {}, // populate some arena details from this?
-                opponents: [], // likely 'seed data' to make new Mob()s from,
-                victoryCondition: {}, // can include sets of rules that constitute a victory as well as the goto that goes with each
-                lossCondition: {} // samesies
-            }, 
-
-            '1b': {
-                description: `You try to get away!`,
-                type: 'skillCheck',
-                check: {vs: 'agility', criticalFailure: 3, failure: 6, success: 9, criticalSuccess: 12},
-                outcomes: {criticalFailure: '1b1', failure: '1b2', success: '1b3', criticalSuccess: '1b4'} // basically just a bunch of goto data
-            }
-        }
-
-
-        Another consideration... when in combat, for example, where does all the info required for combat readouts live?
-        ... one option is playStack.data (just created), a loosey goosey object capable of holding whatever we want it to, which we can check contextually
-        ... another, equally fly-by-night option is having state contain contextData, which would be similar in concept
-        
-        */
-
+       
         // looks alright so far, but we need the 'access points' for that first Chatventure here, too!
         socket.emit('upon_creation', {playerData: sanitizePlayerObj(thisPlayer), token: newPlayerToken});
 
@@ -3739,7 +3948,7 @@ io.on('connection', (socket) => {
             nickname: allSouls[name].township.nickname,
             description: allSouls[name].township.townMap.description,
             history: allSouls[name].township.history.slice(-150),
-            structs: allSouls[thisPlayer.playStack.gps].township.townMap.structs
+            structs: allSouls[thisPlayer.playStack.gps].township.structs
         };
         socket.join(name);
         return socket.emit('location_update', locationData);
@@ -3842,7 +4051,7 @@ io.on('connection', (socket) => {
             nickname: 'Zenithica',
             description: allSouls['Zenithica'].township.townMap.description,
             history: allSouls['Zenithica'].township.history.slice(-150),
-            structs: allSouls['Zenithica'].township.townMap.structs
+            structs: allSouls['Zenithica'].township.structs
         };
         socket.emit('location_update', initialLocationData);        
     });
@@ -4070,31 +4279,8 @@ function createWorldMap(seedObject) {
 
         BIOMES! ... quite zone-dependent, which we'll define more below
         ... NOTE: for this, 'biome' is a non-strict definition, and is more like "tileType" for the purposes of the flora, fauna, resources, and chatventures possible
-        FORESTS
-            - forest (temperate)
-            - jungle (tropical rainforest, essentially)
-            - taiga (boreal/northern/cold forest)
-        WETLANDS
-            - swamp (forest wetlands, slow moving waters with woody plants such as cypress and mangrove)
-            - bog (mostly dead stuff, generally higher up)
-            - marsh (same water as swamp but softer, non-woody)
-        FLATLANDS
-            - savanna (tree-studded/'tropical' grasslands, thanks to just enough seasonal rainfall -- actually many types, and tend to occur between forest and 'true' grassland?)
-            - plain (or prairie; short to tall grasses, flowers, and herbs, but no trees due to not quite enough rainfall, just a tad too dry)
-            - tundra (flat, cold, permafrost under the soil makes trees a no-go, grass and moss grow during short summer, birdless in winter, li'l burrowing game present)
-        DESERTS
-            - arctic (tons of water... locked in ice, so plants and animals ain't getting any)
-            - desert
-        MARINE
-            - ocean
-            - what else... bay, shoal, coast, ?
-        FRESHWATER
-            - lake (note: particularly small/shallow lakes are ponds, but for now we don't need to bother with this distinction)
-            - stream (crossable on foot - more of an 'overlay' for our tile purposes)
-            - river (not crossable on foot by default)
-        BUMPY (not actually a biome type IRL :P)
-            - hill
-            - mountain (REAL high hills :P... we won't make them impassable for now due to limitations in our seed gen... generally in the middle of lots of hills)
+        
+
 
         
         TAIGA and TUNDRA pop up in the highest latitudes on Earth, at least (60 - 90, top/bottom 'third' or so)
@@ -4238,7 +4424,52 @@ function createWorldMap(seedObject) {
     */
     //
     
-    let mapSize = 200;
+    /*
+    
+    seedObject = {
+        size: stringy,
+        level: number,
+        continents: number,
+        rangeMax: false
+    }
+    
+    */
+
+    if (seedObject?.size == null) seedObject.size = 'small';
+    if (seedObject?.rangeMax == null) seedObject.rangeMax = true;
+
+    let mapSize;
+    switch (seedObject.size) {
+        case 'xsmall': {
+            mapSize = 100;
+            break;
+        }
+        case 'small': {
+            mapSize = 200;
+            break;
+        }
+        case 'medium': {
+            mapSize = 350;
+            break;
+        }
+        case 'large': {
+            mapSize = 500;
+            break;
+        }
+        case 'xlarge': {
+            mapSize = 800;
+            break;
+        }
+    }
+
+    // we'll derive this programmatically/dynamically once everything's working and we want more scalability
+    // can have 'presets' like specific challenges and then more granular for exploration and futzing around
+    // we may want to make a separate, dedicated API for worldbuilding... it takes a sec!
+    let landMassCount = seedObject?.continents || 3;
+    let worldLevel = seedObject?.level || 5;
+    let availableSeeds = Math.floor((mapSize * mapSize) / 5);
+    availableSeeds = rando(availableSeeds / 1.3, availableSeeds * 1.3);
+    let landMassGenerators = [];    
     let newWorldMap = new Array(mapSize);
     for (let i = 0; i < mapSize; i++) {
         newWorldMap[i] = new Array(mapSize);
@@ -4249,67 +4480,32 @@ function createWorldMap(seedObject) {
         flatland: []
     };
 
+    // new char: please give us a createWorldMap({size: 'small', level: 5, continents: 1, rangeMax: true})
     
     // the world is all ocean by default
     for (let y = 0; y < mapSize; y++) {
         for (let x = 0; x < mapSize; x++) {
-            newWorldMap[y][x] = 'ocean'; 
+            newWorldMap[y][x] = new TileArea().level(worldLevel).setBiome('ocean'); 
             biomeRecords.ocean.push([y,x]); 
         }
     }
 
-    // lol yup it works just a cute little 900 item array no big deal, "... 800 more items" indeed
-    // console.log(`Our oceans have been filled! Behold our record of the ocean: `, biomeRecords.ocean);
-    // let allGenerators = [
-    //     {
-    //         gps: [14,14],
-    //         rangeMax: null,
-    //         numSeeds: 250,
-    //         replaceRules: {'..': true},
-    //         seed: '[]',
-    //         type: 'flatland', // we'll have this be the default; we can math out the 'chunk' of 'not-flatland' easily enough
-    //         record: {} // object with each 'key' being a latitude strip - add in record-keeping during initial land generation
+
+    // implement this later; continents running into each other isn't really problematic at this stage
+    // let landMassSpawns = [];
+    // landMassSpawns[0] = [rando(0,mapSize-1),rando(0,mapSize-1)];
+    // if (landMassCount > 1) {
+    //     for (let m = 1; i < landMassCount; i++) {
+    //         let newCoords = [rando(0,mapSize-1),rando(0,mapSize-1)];
+    //         do {
+    //             // here: check newCoords for appropriate distance from landMassSpawns[0]'s [y,x] coords
+    //             // oh. that only works for one. we need another whole-arse loop of previous coords to be truly comprehensive...
+    //             let farEnough = true;
+    //             let yDist = checkMinDistance(0, 0, mapSize);
+    //         } while (farEnough === false);
     //     }
-    // ]
+    // }
 
-    /*
-    
-        OK! The newest challenge: how to create a new gps origin for forests
-        ... and randomize the gps for grassland above, too
-        ... and also allow for the possibility of multiple separate generators... say, 3 separate landmasses
-        ... we could move some of this logic into functions, and then loop around until we've exhausted some master list of 'stuff to generate'
-
-        that would help, but first...  hmm...
-        for each landmass, we want to
-        1) let it decide where to put itself
-        2) snake itself into a shape
-        3) go through all its decoration phase to convert its mass into separate biomes, including recognizing pre-existing lakes
-        ... maybe dividing itself into 'zones,' ooh, based on where it is in the world's axis (the world itself having climes???)
-        ... this is entirely too much fun :P
-
-
-        MHRlandmind
-        we draw the land (flatland), find the innerTiles, then we splash in several water sources thoughtfully across the innerTiles, removing them from other records...
-        ... recording new freshwater data as we do, in some fashion...
-        ... then we presume those areas are 'wetter' and preferentially throw some bounded forest-snakes near these water sources to deplete our 'forest count'
-        ... wetlands, such as swamps, are 'transition areas' and would be found near big rivers... may pop 'em out for now, pending better seeding logic
-    
-    */
-
-    // we'll derive this programmatically/dynamically later
-    // ... actually, we get some REALLY cool shapes when we let several large unbound snakes rampage across each other
-    // we may want to make a separate, dedicated API for worldbuilding... it takes a sec!
-    let landMassCount = 3;
-    let availableSeeds = Math.floor((mapSize * mapSize) / 5);
-    availableSeeds = rando(availableSeeds / 1.3, availableSeeds * 1.3)
-    let landMassGenerators = [];
-
-    // whoa, neat. at scale, it looks a LOT more interesting!
-    // however, when we have multiple landmasses, without bounding they kind of just idly slam into and across each other
-    // while visually awesome, it does mean that we can't guarantee any segregation :P
-    // we're also still suffering from the 'all the hills are in one area, all the forests are in another' effects
-    // freshwater is still kind of a mess, too... if we make them untraversible we hit issues, but then we have no proper lakes/non-ocean water bodies otherwise
-    // though, if we limit freshwater (and maybe hilly areas?) to 'innerTiles' we might see less wacky behavior?
 
     for (let l = 1; l <= landMassCount; l++) {
         // -ideally-, for multiple landmass scenarios, we'd 'force adequate distance' by:
@@ -4319,36 +4515,37 @@ function createWorldMap(seedObject) {
         // ... and if they collide, they collide, I'm not against natural land bridges in most cases!
         // that said, we need to keep a record as we go so we can go back over those land spots and properly address 'own 
 
-        // forest-20, wetland-10, flatland-30, desert-10, freshwater-15, bumpy-15
         // can adjust those based on world gen rules in here
         let newLandGPS = [0,0];
         do {
             newLandGPS = [rando(0,mapSize-1),rando(0,mapSize-1)];
         } while (false);
         let newGenerator = {
-            gps: newLandGPS,
-            spawn: newLandGPS,
+            gps: [...newLandGPS], // y, x instead of common x, y
+            spawn: [...newLandGPS],
             rangeMax: null,
             numSeeds: 0,
-            // NOTE: it works, but I'm not sure the ratios are ideal, and same issue with imprecise gen...
-            // but we could work around it, potentially, hrm
-            tiles: {forest: 20, wetland: 5, flatland: 30, desert: 10, freshwater: 10, bumpy: 15},
-            numZones: {forest: rando(1,3), wetland: 1, desert: rando(1,2), freshwater: rando(1,3), bumpy: rando(1,3)},
+            levelModifier: -10 + (l * 10),
+            tiles: {forest: 20, wetland: 5, flatland: 20, desert: 10, bumpy: 15},
+            // numZones: {forest: rando(1,3), wetland: 1, desert: rando(1,2), freshwater: rando(1,3), bumpy: rando(1,3)}, // probably gonna just nix this bit
             zones: {},
             replaceRules: {'..': true}, // might not have to worry about numZones since snakes will likely wildly crisscross anyway... hm
-            // so we can let wild criss-crossing 'accidentally' create separate areas visually, but that doesn't help us zone, so... nevermind I guess :P
-            // then we definitely do need to be a little cautious about letting the snakes run too amok
-            // ooh, for rangeMax, what if we 'return to center' and restart? that'd create tighter patterns than bonking against invisible walls
             seed: 'flatland',
             type: 'flatland',
             record: [], // doop de doo... object or array for this? hrmsicles...
-            tileRecord: {forest: [], wetland: [], desert: [], freshwater: [], bumpy: []},
+            tileRecord: {forest: [], wetland: [], desert: [], freshwater: [], bumpy: [], flatland: [], mountain: [], ocean: []},
+            latitudeRecord: {},
             innerTiles: []
         }
-        if (l === landMassCount) newGenerator.numSeeds = availableSeeds
-            else newGenerator.numSeeds = Math.floor(rando(availableSeeds / 5, availableSeeds / 2));
+        if (l === landMassCount) newGenerator.numSeeds = Math.floor(availableSeeds)
+            else newGenerator.numSeeds = Math.floor(rando(availableSeeds / 3, availableSeeds / 1.5));
         console.log(`Landmass #${l} has claimed ${newGenerator.numSeeds} seeds!`);
 
+        // quick maths: if a landmass has 100 seeds, it can occupy a 10x10 grid fully (boring :P)
+        // but that means that we're 'covered' as long as we're allowed to go +5 in any x/y direction (11 x 11)
+        // so bare minimum is seeds sqrt / 2 as the omni-directional limiter
+        // should probably add at least... say... 30% to that? let's see what happens.
+        if (seedObject.rangeMax) newGenerator.rangeMax = Math.floor((Math.sqrt(newGenerator.numSeeds) / 2 + 1) * 1.3);
 
         // randomly warping the initial 'seed weights' that the initial tiles values represent
         Object.keys(newGenerator.tiles).forEach(tileSeed => {
@@ -4375,243 +4572,285 @@ function createWorldMap(seedObject) {
 
     let currentDirection = null;
     
+    /*
 
-    // initial 'flatland' generator on the ocean for a given generator
+        ok, the basic class TA stuff is looking pretty good, just about ready to implement... 
+        
+        oh, it'd be great to have an 'absolute distance finder' given map wrap-around antics
+        a spot on the right edge of the map currently would read as SUPER FAR AWAY from a spot x+1 distance away based on simple mathery
+        ... but if we define xRange and yRange, any xRange that's super large is necessarily probably actually really small in reality
+    
+    */
+
+    // initial wild generator of 'default landmass types' not yet stratified by climate
     landMassGenerators.forEach(generator => {
         do {
-            // if the spot we're currently on isn't the seed string, turn it into the seed string and decrement seeds by 1
-            // this later would better be generalized by referencing replaceRules
-            if (newWorldMap[generator.gps[0]][generator.gps[1]] !== generator.seed) {
-                newWorldMap[generator.gps[0]][generator.gps[1]] = generator.seed;
-                // biomeRecords[generator.type].push([generator.gps[0], generator.gps[1]]);
-                generator.record.push([generator.gps[0], generator.gps[1]]);
-                generator.numSeeds -= 1;
-            }
-            
-            
-            // technically the IF statements below only check Y length and not X, so this would potentially break if we did NOT specify a perfectly square world
-            switch (currentDirection) {
-                case 'up': {
-                    generator.gps[0] -= 1;
-                    if (generator.gps[0] < 0) generator.gps[0] = newWorldMap[0].length - 1;
-                    currentDirection = pickOne(['up', 'right', 'left']);
-                    break;
-                }
-                case 'right': {
-                    generator.gps[1] += 1;
-                    if (generator.gps[1] > newWorldMap[0].length - 1) generator.gps[1] = 0;
-                    currentDirection = pickOne(['up', 'right', 'down']);
-                    break;
-                }
-                case 'down': {
-                    generator.gps[0] += 1;
-                    if (generator.gps[0] > newWorldMap[0].length - 1) generator.gps[0] = 0;
-                    currentDirection = pickOne(['right', 'down', 'left']);
-                    break;
-                }
-                case 'left': {
-                    generator.gps[1] -= 1;
-                    if (generator.gps[1] < 0) generator.gps[1] = newWorldMap[0].length - 1;
-                    currentDirection = pickOne(['up', 'down', 'left']);
-                    break;
-                }
-                default: {
-                    // ah, we're on the first loop through, hopefully, sooooo:
-                    currentDirection = pickOne(['up', 'right', 'down', 'left']);
-                    break;
-                };
-            }
-    
-        } while (generator.numSeeds > 0);
 
-        // RESULT: everything below 'works' well enough in terms of snaking around and putting the proper number of everything down!
-        /*
-        
-        
-        */
+            // so, this works, but very often leaves, say, flatland values high until the end, when it then has to place a TOOOON of flatland
+            // so we still get very large swaths of largely featureless meh
+            let currentBiome = pickOne(Object.keys(generator.tiles)); // this SHOULD helpfully just pick a key for us
+            // console.log(`Up next we're going to plant ourselves a bit of ${currentBiome}, as the tile choices include `, generator.tiles)
 
-        currentDirection = null;
+            // check vs generator.spawn, which is initial coords
+            // IF rangeMax, it's the max allowable distance from generator.spawn, so if it's OVER that, we teleport back to spawn and re-snake
 
-        // for visualization purposes only at this stage; definitely refactor material once we have a client-side visualization tool
-        const tileRef = {
-            forest: 'forest',
-            wetland: 'wetland',
-            desert: 'desert',
-            freshwater: 'freshwater',
-            bumpy: 'bumpy'
-        }
+            let numOfTilesToPlace;
 
-        // so we're definitely going to have to create an innerLandFinder fxn and pick from there
-        // innerLand: any flatland space at this step that has more flatland n, e, s, and w of it
-        // at this point, also, we have an array record of all our land spots, so can just shoot through real quick and make an innerTiles array
-        generator.record.forEach(flatlandTile => {
-            // tile should be a handy [y,x] [0][1]:
-            let x = flatlandTile[1];
-            let xRight = flatlandTile[1] + 1;
-            if (xRight >= mapSize) xRight = 0;
-            let xLeft = flatlandTile[1] - 1;
-            if (xLeft <= -1) xLeft = mapSize - 1;
-
-            let y = flatlandTile[0];
-            let yUp = flatlandTile[0] - 1;
-            if (yUp <= -1) yUp = mapSize - 1;
-            let yDown = flatlandTile[0] + 1;
-            if (yDown >= mapSize) yDown = 0;
-
-            if (newWorldMap[y][xRight] === '[]' && newWorldMap[y][xLeft] === '[]' && newWorldMap[yUp][x] === '[]' && newWorldMap[yDown][x] === '[]') generator.innerTiles.push(flatlandTile);
-        });
-
-        // ... actually all of this is moot-ish if we have most rivers be streams and have separate river/lake logic :P
-        // we have to decide if we want hills to be their own biome type OR a modifier to others
-        // it makes the most sense if hills can exist as a modifier/subtyping of other biomes, akshully... hrm
-
-        // along those lines, maybe having a 'height' attribute and having 'hilliness' or 'bumpiness' create a different tile if it's of certain... bumpitude
-        // also, painting in layers makes sense...
-        // which is to say, deciding on some attributes that are a substitution for weather or precursor to weather
-        // then we get lakes that can form in the 'wetter' squares by a certain chance, recording as they do and 'forcing' if falling below threshold
-        // the drier squares then have a chance at becoming desert, possibly also forcing to a threshold
-        // high lake squares then have water run down 
-
-        /*
-        
-            IF we do wet/dry and hot/cold, we can do a layered approach... first x, then y, then z, etc.
-
-            Well, what's the goal? Visually interesting, with 'blocks' and regions of various different biomes
-            - currently, we have a fairly high chance of getting a SINGLE block of a given biome
-            - we can use rando and for-loops instead of do-while to do some choppin'?
-        
-        */
-
-        // or we can just simulate all of the above, rejiggering biome concepts to just make something that's workable for play for now
-
-        
-        Object.keys(generator.tiles).forEach(biomeType => {
-            // console.log(`Now tackling ${biomeType} biome!`);
-
-            // hm, how would we encourage multiple seeds? single-seeding isn't quiiiite cutting it
-            let newGPS;
-
-            // scooting this down into the DO loop below after that first break causes a LOT more terrain variety, at the cost of sanity
-            if (biomeType === 'freshwater' && biomeType === 'bumpy') newGPS = pickOne(generator.innerTiles)
-            else newGPS = pickOne(generator.record);
+            // hm, for larger maps, we still get MASSIVE swaths of terrain that don't work super well for Civ-style
+            if (generator.tiles[currentBiome] <= 15) numOfTilesToPlace = generator.tiles[currentBiome]
+                else numOfTilesToPlace = rando(5,15);
+            // can add another rando before or after for 'critical roll! - weird result!' and do some wacky seed work
+            // console.log(`I think I will do ${numOfTilesToPlace} tiles for ${currentBiome} this time through since we have ${generator.tiles[currentBiome]} left.`);
 
             do {
-                if (biomeType === 'flatland') break;
+                // HERE: quick check to see if we're past rangeMax, and if so, correct generator.gps to be generator.spawn again
 
- 
 
-                // still FAR too choppy... oh, yeah, it fires like a quadrillion times for some reason, huh.
-                
-                let numOfTilesToPlace = Math.floor(rando(generator.tiles[biomeType] / 5, generator.tiles[biomeType]));
-                console.log(`I think I will do ${numOfTilesToPlace} tiles for ${biomeType} this time through since we have ${generator.tiles[biomeType]} left.`);
-                // for (let i = 0; i <= numOfTilesToLoop; i++) {
-                //     if (newWorldMap[newGPS[0]][newGPS[1]] === 'flatland') {
-                //         newWorldMap[newGPS[0]][newGPS[1]] = tileRef[biomeType];
-                //         generator.tiles[biomeType] -= 1;
-                //         // if (generator.tiles[biomeType])
-                //         generator.tileRecord[biomeType].push([newGPS[0],newGPS[1]]);
-                //     }
-                // }
-                do {
-                    if (newWorldMap[newGPS[0]][newGPS[1]] === 'flatland') {
-                        newWorldMap[newGPS[0]][newGPS[1]] = tileRef[biomeType];
-                        generator.tiles[biomeType] -= 1;
-                        numOfTilesToPlace -= 1;
-                        // if (generator.tiles[biomeType])
-                        generator.tileRecord[biomeType].push([newGPS[0],newGPS[1]]);
+
+
+                if ((generator.rangeMax != null) && (checkMinDistance(generator.gps[0], generator.spawn[0], mapSize) > generator.rangeMax || checkMinDistance(generator.gps[1], generator.spawn[1], mapSize) > generator.rangeMax)) generator.gps = [...generator.spawn];
+
+                if (newWorldMap[generator.gps[0]][generator.gps[1]].biome === 'ocean') {
+                    newWorldMap[generator.gps[0]][generator.gps[1]] = currentBiome;
+                    generator.tiles[currentBiome] -= 1;
+                    if (generator.tiles[currentBiome] === 0) delete generator.tiles[currentBiome];
+                    numOfTilesToPlace -= 1;
+                    // if (generator.tiles[currentBiome])
+                    generator.tileRecord[currentBiome].push([generator.gps[0],generator.gps[1]]);
+                    if (generator.latitudeRecord[`${generator.gps[0]}`] == null) generator.latitudeRecord[`${generator.gps[0]}`] = [];
+                    generator.latitudeRecord[`${generator.gps[0]}`].push([generator.gps[0],generator.gps[1]]);
+                }
+                switch (currentDirection) {
+                    case 'up': {
+                        generator.gps[0] -= 1;
+                        if (generator.gps[0] < 0) generator.gps[0] = newWorldMap[0].length - 1;
+                        currentDirection = pickOne(['up', 'right', 'left']);
+                        break;
                     }
-                    switch (currentDirection) {
-                        case 'up': {
-                            newGPS[0] -= 1;
-                            if (newGPS[0] < 0) newGPS[0] = newWorldMap[0].length - 1;
-                            currentDirection = pickOne(['up', 'right', 'left']);
-                            break;
-                        }
-                        case 'right': {
-                            newGPS[1] += 1;
-                            if (newGPS[1] > newWorldMap[0].length - 1) newGPS[1] = 0;
-                            currentDirection = pickOne(['up', 'right', 'down']);
-                            break;
-                        }
-                        case 'down': {
-                            newGPS[0] += 1;
-                            if (newGPS[0] > newWorldMap[0].length - 1) newGPS[0] = 0;
-                            currentDirection = pickOne(['right', 'down', 'left']);
-                            break;
-                        }
-                        case 'left': {
-                            newGPS[1] -= 1;
-                            if (newGPS[1] < 0) newGPS[1] = newWorldMap[0].length - 1;
-                            currentDirection = pickOne(['up', 'down', 'left']);
-                            break;
-                        }
-                        default: {
-                            currentDirection = pickOne(['up', 'right', 'down', 'left']);
-                            break;
-                        };
+                    case 'right': {
+                        generator.gps[1] += 1;
+                        if (generator.gps[1] > newWorldMap[0].length - 1) generator.gps[1] = 0;
+                        currentDirection = pickOne(['up', 'right', 'down']);
+                        break;
                     }
-                } while (numOfTilesToPlace > 0);
+                    case 'down': {
+                        generator.gps[0] += 1;
+                        if (generator.gps[0] > newWorldMap[0].length - 1) generator.gps[0] = 0;
+                        currentDirection = pickOne(['right', 'down', 'left']);
+                        break;
+                    }
+                    case 'left': {
+                        generator.gps[1] -= 1;
+                        if (generator.gps[1] < 0) generator.gps[1] = newWorldMap[0].length - 1;
+                        currentDirection = pickOne(['up', 'down', 'left']);
+                        break;
+                    }
+                    default: {
+                        currentDirection = pickOne(['up', 'right', 'down', 'left']);
+                        break;
+                    };
+                }
+                console.log(`Placed a tile! NEW GPS IS ${generator.gps}, while SPAWN is ${generator.spawn}`)
+            } while (numOfTilesToPlace > 0);
+
+        } while (Object.keys(generator.tiles).length > 0);
+
+        // console.log(`Latitude record now looks like this... `, generator.latitudeRecord)
+
+        // HELPFUL HERE, I hope: sort each latitude left-to-right in terms of x value
 
 
-                console.log(`Neato. After planting all of those, we only have ${generator.tiles[biomeType]} tiles left.`);
+        // moved mountain generation to BEFORE freshwater generation, should help with some impassability issues
+        for (let y = 0; y < newWorldMap[0].length; y++) {
+            for (let x = 0; x < newWorldMap[0].length; x++) {
+                if (newWorldMap[y][x] === 'bumpy') {
+                    let bumpySides = 0;
+                    
+                    let yUp = y === 0 ? newWorldMap[0].length -1 : y - 1;
+                    let yDown = y === newWorldMap[0].length - 1 ? 0 : y + 1;
+                    let xRight = x === newWorldMap[0].length - 1 ? 0 : x + 1;
+                    let xLeft = x === 0 ? newWorldMap[0].length -1 : x- 1;
+                    if (newWorldMap[yUp][x] === 'bumpy') bumpySides += 1;
+                    if (newWorldMap[yUp][x]?.biome === 'ocean') bumpySides -= 1;
+                    if (newWorldMap[yDown][x] === 'bumpy') bumpySides += 1;
+                    if (newWorldMap[yDown][x]?.biome === 'ocean') bumpySides -= 1;
+                    if (newWorldMap[y][xRight] === 'bumpy') bumpySides += 1;
+                    if (newWorldMap[y][xRight]?.biome === 'ocean') bumpySides -= 1;
+                    if (newWorldMap[y][xLeft] === 'bumpy') bumpySides += 1;
+                    if (newWorldMap[y][xLeft]?.biome === 'ocean') bumpySides -= 1;
 
+                    if (newWorldMap[yUp][xRight] === 'bumpy') bumpySides += 1;
+                    if (newWorldMap[yUp][xRight]?.biome === 'ocean') bumpySides -= 1;
+                    if (newWorldMap[yUp][xLeft] === 'bumpy') bumpySides += 1;
+                    if (newWorldMap[yUp][xLeft]?.biome === 'ocean') bumpySides -= 1;
+                    if (newWorldMap[yDown][xRight] === 'bumpy') bumpySides += 1;
+                    if (newWorldMap[yDown][xRight]?.biome === 'ocean') bumpySides -= 1;
+                    if (newWorldMap[yDown][xLeft] === 'bumpy') bumpySides += 1;
+                    if (newWorldMap[yDown][xLeft]?.biome === 'ocean') bumpySides -= 1;
+                    if (bumpySides >= 4) {
+                        
+                        newWorldMap[y][x] = 'mountain';
+                        generator.tileRecord.mountain.push[[y,x]]; 
+                    }
+                }
+            }
+        }
+        
+        // kind of slow, actually. should:
+        // 1) only go through the tiles of the landmass
+        // 2) combine the 'loop-through' to do ocean AND bumpy
+        // speed is key
+        // oh, wait, we need to check OCEAN, not actual placed tiles. ok, welp, we can abbreviate bumpy below, but this will require more figuring to optimize
+        // it definitely CAN be more optimized, though... plenty of ways to check 'ocean tiles' that fall within a certain range of our new landmass only and not the entire middle of the ocean, for example
+        for (let y = 0; y < newWorldMap[0].length; y++) {
+            for (let x = 0; x < newWorldMap[0].length; x++) {
+                if (newWorldMap[y][x].biome === 'ocean') {
+                    let landSides = 0;
+                    // QUADRI-DIRECTIONAL CHECK
+                    let yUp = y === 0 ? newWorldMap[0].length -1 : y - 1;
+                    let yDown = y === newWorldMap[0].length - 1 ? 0 : y + 1;
+                    let xRight = x === newWorldMap[0].length - 1 ? 0 : x + 1;
+                    let xLeft = x === 0 ? newWorldMap[0].length -1 : x- 1;
+                    if (newWorldMap[yUp][x]?.biome !== 'ocean') landSides += 1;
+                    if (newWorldMap[yDown][x]?.biome !== 'ocean') landSides += 1;
+                    if (newWorldMap[y][xRight]?.biome !== 'ocean') landSides += 1;
+                    if (newWorldMap[y][xLeft]?.biome !== 'ocean') landSides += 1;
+
+                    if (newWorldMap[yUp][xRight]?.biome !== 'ocean') landSides += 1;
+                    if (newWorldMap[yUp][xLeft]?.biome !== 'ocean') landSides += 1;
+                    if (newWorldMap[yDown][xRight]?.biome !== 'ocean') landSides += 1;
+                    if (newWorldMap[yDown][xLeft]?.biome !== 'ocean') landSides += 1;
+                    if (landSides >= 5) {
+                        // oh we're almost totally surrounded by land, we're fresh water now, splash!
+                        newWorldMap[y][x] = 'freshwater';
+                        generator.tileRecord.freshwater.push[[y,x]]; 
+                    }
+                }
+            }
+        }
+
+        // brute force mountain-maker :P ... actually, we could also just go through the tilerecord of BUMPY and do it a bit faster that way
+        // that said, it works pretty darn well so far
+
+
+        // ok! next up, using world's defined ZONES to transcribe forest: [], wetland: [], desert: [], freshwater: [], bumpy: [], flatland: [], mountain: [] into their various climate-counterparts
+        // forest -> jungle, wood, taiga
+        // wetland -> swamp, marsh, bog
+        // flatland -> savanna, plain, tundra
+        // desert -> dunescape, desert, arctic
+        // freshwater -> cruisewater, lake, frostwater
+        // bumpy -> greenhill, hill, frostmound
+        // mountain -> mountain, for now :P
+        // ocean remains ocean at this point
+        // let's see... so we want 'probability bands' from top to bottom; what's the best way to accomplish that... I'd rather avoid just doing aggressive stripes across the world where you can see the 'line' of climate shave across
+        // we should probably make a function or object that 'translates' for us at some point (tropical, temperate, arctic)
+        // for now we can just zip through the world (well, just this landmass would be better, right now we're doing whole-world every time :P)
+        // new TA().level(levelNum).biome(biomeString) for each
+        let distanceFromEquator;
+        let polarWeight = 0;
+        let temperateWeight = 0;
+        let tropicalWeight = 0;
+        let biomeLevel = worldLevel + generator.levelModifier;
+
+
+        // we MIGHT be hitting this issue because we go over the ENTIRE WORLD via every single landmass
+        // so we're gonna have a lot of snakey overlap, which maaay be causing some issues, and definitely is slowing everything down a bit
+        // 
+
+        for (let y = 0; y < newWorldMap[0].length; y++) {
+            for (let x = 0; x < newWorldMap[0].length; x++) {
+                distanceFromEquator = Math.abs(Math.floor(mapSize / 2) - y);
+                polarWeight = Math.floor(distanceFromEquator - (mapSize / 4)); // in size 100 map, highest is 25, dropping to 0 by 25 down
+                if (polarWeight < 0) polarWeight = 0;
+                tropicalWeight = (mapSize / 4) - distanceFromEquator; // in size 100 map, highest is 25, down to 0 by 25 away
+                if (tropicalWeight < 0) tropicalWeight = 0;
+                temperateWeight = (mapSize / 4) - polarWeight - tropicalWeight; // in the 'middles' temperate would reign in this model, it seems
+                if (temperateWeight < 0) temperateWeight = 0;
 
                 
+                let biomeType = weightChoice({result: 'tropical', weight: tropicalWeight}, {result: 'temperate', weight: temperateWeight}, {result: 'polar', weight: polarWeight});
                 
-                // technically the IF statements below only check Y length and not X, so this would potentially break if we did NOT specify a perfectly square world
+                // console.log(`Okie dokie! Now we can seed the biome type ${biomeType} which is level ${biomeLevel}, which is ${typeof biomeLevel}`)
+                switch (newWorldMap[x][y]) {
+                    case 'forest': {
+                        if (biomeType === 'tropical') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('jungle');
+                        if (biomeType === 'temperate') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('wood');
+                        if (biomeType === 'polar') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('taiga');
+                        break;
+                    }
+                    case 'wetland': {
+                        if (biomeType === 'tropical') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('swamp');
+                        if (biomeType === 'temperate') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('marsh');
+                        if (biomeType === 'polar') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('bog');
+                        break;
+                    }
+                    case 'flatland': {
+                        if (biomeType === 'tropical') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('savanna');
+                        if (biomeType === 'temperate') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('plain');
+                        if (biomeType === 'polar') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('tundra');
+                        break;
+                    }
+                    case 'desert': {
+                        if (biomeType === 'tropical') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('dunescape');
+                        if (biomeType === 'temperate') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('desert');
+                        if (biomeType === 'polar') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('arctic');
+                        break;
+                    }
+                    case 'freshwater': {
+                        if (biomeType === 'tropical') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('cruisewater');
+                        if (biomeType === 'temperate') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('lake');
+                        if (biomeType === 'polar') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('frostwater');
+                        break;
+                    }
+                    case 'bumpy': {
+                        if (biomeType === 'tropical') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('greenhill');
+                        if (biomeType === 'temperate') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('hill');
+                        if (biomeType === 'polar') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('frostmound');
+                        break;
+                    }
+                    case 'ocean': {
+                        // ok, so setting this tileArea is what causes it to hang indefinitely... and I legitimately have no idea why.
+                        // console.log(`I am OCEAN! But I sure wish I could be a TILE.`);
+                        // newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('ocean');
+                        break;
+                    }
+                    case 'mountain': {
+                        newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('mountain');
+                        break;
+                    }
+                    
+                    default: {
+                        // huh. we're getting already-tiled areas in our loop. that shouldn't happen. :P
+                        // console.log(`We hit a part of the world that isn't defined how we expect. WEIRD. This part of the world is apparently: `, newWorldMap[y][x]);
+                        break;
+                    }
+                }
+            }
+        }
 
 
-            } while (generator.tiles[biomeType] > 0);
-
-            // do {
-            //     if (biomeType === 'flatland') break;
-
-            //     if (newWorldMap[newGPS[0]][newGPS[1]] === 'flatland') {
-            //         newWorldMap[newGPS[0]][newGPS[1]] = tileRef[biomeType];
-            //         // biomeRecords[generator.type].push([generator.gps[0], generator.gps[1]]);
-            //         // generator.record.push([generator.gps[0], generator.gps[1]]);
-            //         generator.tiles[biomeType] -= 1;
-            //         // after subtracting, we should prooooobably add a zone-y record somewhere
-            //     }
+        /*
+            MHRlakes
+            NEXT UP:
+            x lakey logic
+            x mountain logic
+            x tile gen: climate-based biome conversion & level setting
+                - welp, it 'works,' buuuuuuuuuuuuuuuut east/west instead of north/south, whoopsiedoodle :P
                 
+            - adding mob logic to tiles (rarityWeight, encounterWeight, aggression for random encounters, etc.)
+            - adding basic 'fun stuff' sprinkled either within every biome type OR indiscriminantly across any biome
+                -> make sure to create the 'interesting bits' in a way that is replicable when adding more in the future
+            - finally, mobfactions (can include npc stuff, though we need a 'working model' for township visiting as well to help this out)
+            - ... and that should be sufficient to make a world 'alive' enough for play! WOO!
+                -> we can probably remove the world's builder stuff such as tileRecord, latitudeRecord, etc.
                 
-            //     // technically the IF statements below only check Y length and not X, so this would potentially break if we did NOT specify a perfectly square world
-            //     switch (currentDirection) {
-            //         case 'up': {
-            //             newGPS[0] -= 1;
-            //             if (newGPS[0] < 0) newGPS[0] = newWorldMap[0].length - 1;
-            //             currentDirection = pickOne(['up', 'right', 'left']);
-            //             break;
-            //         }
-            //         case 'right': {
-            //             newGPS[1] += 1;
-            //             if (newGPS[1] > newWorldMap[0].length - 1) newGPS[1] = 0;
-            //             currentDirection = pickOne(['up', 'right', 'down']);
-            //             break;
-            //         }
-            //         case 'down': {
-            //             newGPS[0] += 1;
-            //             if (newGPS[0] > newWorldMap[0].length - 1) newGPS[0] = 0;
-            //             currentDirection = pickOne(['right', 'down', 'left']);
-            //             break;
-            //         }
-            //         case 'left': {
-            //             newGPS[1] -= 1;
-            //             if (newGPS[1] < 0) newGPS[1] = newWorldMap[0].length - 1;
-            //             currentDirection = pickOne(['up', 'down', 'left']);
-            //             break;
-            //         }
-            //         default: {
-            //             currentDirection = pickOne(['up', 'right', 'down', 'left']);
-            //             break;
-            //         };
-            //     }
-                
-            // } while (generator.tiles[biomeType] > 0);
+            
+            - (rivers/roads can wait a bit)
+            - (as can sea vs ocean; I have a fair idea of how to do this, though - similar iteration as lake/mountain logic - 'shockwave' approach from land)
+            - (beach/shore logic can be reverse-engineered from sea logic)
+        
+        */
 
-        });
-
-        // aaaaand next up, check latitude rules to convert everything to their proper version?
 
     });
 
@@ -4620,52 +4859,48 @@ function createWorldMap(seedObject) {
 
 
     /*
+
+        also have to decide on 'random encounter rate' as well as rules for levels/types of mobs/etc. we'd run into
+
+        'type' can be used both for drawing and other considerations
+
+        mobFactions for fauna and mob generation logic? DQ/FF grid style overlay? peninsula of power? :P
+        ... RPG progression laws: knowing the seed (can range from this seed GPS), level increases the further away you get
+        ... additional landmasses attempt to spawn further and further away? or we can have 'level jumps' if you go the 'wrong way'
+
+        oh, we should add roads. and rivers. probably drawn 'over' ... river first, then if road, 'bridge'
+        - opens up the possibility of multiple road/bridge types
+        - 'blocking' structures
+        - mountains vs hills? 
+        - beaches?
+
+        rivers might be chunked into smaller bits to allow more flow directionality... or not, hrm
     
-        so far so good!
-        rangeMax isn't in use yet; we may not even need it in most cases after all
-        we just 'snake 'til we're spent' and it creates some fun basic land shapes!
 
-        next up, we want to have the ability to continue to iterate over our world until we've exhausted all our generators filled with seeds
+        while we're here, it's about time to work on TOWNSHIP PLACEMENT and TOWNSHIP MANAGEMENT
+        - Civ Model based, but how do we want to do it?
+
+        so our township is down and we automatically get 'all' the resources present in our 'home tile'
+            - we can have structs that improve 'extraction' from home base
+            - what sorts of places we can put our township down on can improve with work, as well
+            - special 'township structs' can be built to facilitate getting going pretty quickly in a given specialization
         
-        let's plant some (T)rees next! 
-        ... so, it doesn't make sense to go back over the WHOLE map and look for our lands to randomly plant trees, as that feels exhaustive AND prone to 
-            creating very predictable patterns of trees on the first found shores... northward shore-trees only? no thanks!
+        one 'work crew' per tile, or multiple? ...
+        how do we figure out who's on what duty? color-code? 
+        CIV style was just slap down on a tile until you hit population number, but that's not quite the model here
         
-        it makes more sense to create a 'record' of the land as we build it, then iterate through pickOne(array of coords) X times to seed a few forests
+        abstracted - get a number of "work squares" depending on (something) and they extract everything from a tile they can
+            - township structs boost effectiveness
+            - on-tile structs boost effectiveness
+            ... so ideally, for best effect, you maximize your 'township tile' output, then do what you can with the target tile(s) to make them productive+
 
 
-        'shore' logic may be a little complicated, but we need beaches, yo! :P
-        ... also, we very often get cool 'landlocked oceans' just during gen, so a way to go through and desalinate them and designate them as lakes would be neat
-            - and give them a chance to 'search for the nearest ocean' to try to reach out with a river
-        ... likewise, having a way to procedurally generate relatively mini-landmasses here and there would be fun
-            - a way to go 'oh here's some ocean that's sufficiently not near anything, mark it as such'
+        also consider 'absolute amounts' rather than 'fractional amounts'... in only the rarest cases would we ever need "hilly" to be 30x30 squares :P
+        - so we'd keep the initially decided upon amounts of everything, but only drop 5-10 of them at a time
         
-        streams versus rivers?
-        ... rivers should be default 'impassable' and have some directionality, the direction of flow from an origin
-            - river origin by default should be a lake of at least two adjacent water squares
+        we could also refactor the OG snake to drop fascinating lines of everything-but-ocean as we go
 
-
-        ... and after that, maybe see if we can't translate this into an 'explorable' map :D
-        ... that feels ideal, because my simplistic node-display map doesn't give a satisfying 'centered' experience
-        ... in such a small map (30 by 30 is TINY), it's hard to make multiple reasonably traversible/livable landmasses by Civ rules
-            - that said, having 'landmass gen' specifically attempt to distance the seeds from each other makes sense
-
-
-        of course, the final step in this is to actually generate tileArea data that's actually usable!
-
-    
-    */
-
-    /*
-
-        reminder: freshwater as it currently works just absolutely floods :P
-    
-        Hm. Do we need to reimagine the return as an object to include metadata, or is it fine to just throw the raw array of arrays around?
-
-        Can we save completed maps on the user's browser? That'd be quite handy, though we'd have to have ways to validate it hasn't changed.
-
-        Also, let us consider LEVEL RULES! What level is everything? How does it spawn? Does only the backend know?
-
+        BLUNT FORCE WATER DESALINATOR/CHECKER: I'm ok with it, but how to set it up?
         
     
     */
@@ -4675,17 +4910,30 @@ function createWorldMap(seedObject) {
 // ok, can console.table and as long as it's within a certain size we're golden... let's see what we can build!
 // createWorldMap();
 
+function checkMinDistance(index, targetIndex, length) {
+    // given an array of length 'length,' what's the smallest distance between index and targetIndex?
+    const distance1 = Math.abs(targetIndex - index);
+    const distance2 = length - distance1;
+    console.log(`Checking a distance between ${targetIndex} and ${index}, which could either be ${distance1} or ${distance2}.`);
+    console.log(`Obviously I'll tell you that the minimum of those two is ${distance1 < distance2 ? distance1 : distance2}.`);
+    if (distance1 < distance2) return distance1;
+    return distance2;
 
-function rollWithinRange() {
-    /*
-    
-        Given a variable range of possible outcomes, pick from it! Rando and for-loop roll?
-        OR! forEach, if the range of possibilities comes in an array or is put into an array
-        -- relative weights
+}
 
-        we'll have to make a few assumptions as to the kind of 'return' we want from this function and provide it the necessary pieces to get useful feedback
-        ... though that's true of any fxn, innit? :P
-    
-    */
-    //
+function weightChoice(...choices) {
+    // we're expecting any number of choices presented in the format 'weight: #, result: something to return'
+    // oh. right. forEach does NOT stop for anyone or anything. the return is... valid but also invalid? yeesh
+    let weightSum = 0;
+    choices.forEach(choiceObj => weightSum += choiceObj.weight);
+    let roll = rando(1, weightSum);
+    // console.log(`Weighted roll! ${roll} vs ${weightSum}.`);
+    for (let c = 0; c < choices.length; c++) {
+        if (roll <= choices[c].weight) {
+            // console.log(`Aha! We've made a choice. That choice is ${choices[c].result}.`);
+            return choices[c].result;
+        }
+        roll -= choices[c].weight;
+    }
+    return console.log(`Somehow, we didn't land on ANY weight option. Logic flaw. Whoops.`);
 }
