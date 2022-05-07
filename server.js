@@ -3,7 +3,6 @@ const app = express();
 const server = require('http').createServer(app);
 const socketIo = require('socket.io');
 const mongoose = require('mongoose');
-const Player = require('./models/Player');
 const GameState = require('./models/GameState');
 // const cors = require('cors');
 const jwt = require('jsonwebtoken');
@@ -317,7 +316,7 @@ class Item {
         // at any rate, with this boostRate, we're effectively doubling the base stats of the gear every 10 levels, which we'll test out
         const boostRate = targetLevel / 10 + 1;
         Object.keys(this.equipStats).forEach(baseStatKey => {
-            // !MHRnao -- amping equipment stats by boostRate
+            
             // example is baseStatKey def which will lead to {flat: #, amp: {stat1: #, stat2: #}}
             this.equipStats[baseStatKey].flat *= boostRate;
             this.equipStats[baseStatKey].flat = Math.floor(this.equipStats[baseStatKey].flat);
@@ -2253,7 +2252,7 @@ Constructing some structing
 - nexus is the conduit for inter-chat travel
 - perimeter is the perimeter of the township, the gateway to 'scouting'/patrolling/local area chatventuring
 
-BRAINSTORM:
+ALLSTRUCTS BRAINSTORM:
 Many of the below can be constructed in various ways, such as a blacksmith tent or blacksmith cabin; class-buildings are likely an exception due to their nature
 - tavern
 - den (rogue)
@@ -2277,8 +2276,8 @@ Many of the below can be constructed in various ways, such as a blacksmith tent 
 - stables
 - training yard
 - townhall
-- townwall
-- towngate (more than one is possible!)
+- town wall
+- town gate
 - stockpile
 - well
 - orchard
@@ -2563,6 +2562,29 @@ const structBlueprints = {
 
 };
 
+const structInteractions = {
+    'town gate': {
+        gate(entity, target) {
+            // given the player entity and the target struct, backsolve to pop them into that township's world at the wps of said township
+            let mapToGrab = null;
+
+            if (allWorlds[allSouls[target.soulRef].township.worldID] != null) {
+                let targetTownship = allSouls[target.soulRef].township;
+                entity.playStack = {...entity.playStack, wps: targetTownship.wps, worldID: targetTownship.worldID, mode: 'worldMap'};
+                // actually, we might have to sanitize the map obj a little, but for now we kinda need a lot of it, sooooooooo here ya go, bud:
+                mapToGrab = allWorlds[allSouls[target.soulRef].township.worldID];
+                
+                return io.to(entity.name).emit('enter_world_map', {playStack: entity.playStack, mapObj: mapToGrab});
+            }
+            return console.log(`Someone tried to enter a world through a town gate, but it failed for some reason. We should look into why that is...`);
+        }
+    },
+    'nexus': {
+        nexus() {
+
+        }
+    }
+}
 
 
 
@@ -2590,13 +2612,14 @@ class Struct {
 class NexusStruct {
     constructor() {
         this.type = 'nexus';
+        this.displayName = 'Nexus';
         this.id = null;
         this.soulRef = null;
         this.nickname = `The Nexus Crystals`;
         this.description = `A blossom of milky blue-white crystal, standing twice the height of a tall man, that acts as the heart of the township.`,
         this.level = 1;
         this.hp = 3000;
-        this.interactions = {nexus: 'nexus'};
+        this.interactions = {nexus: 'nexus', default: 'nexus'};
         this.icon = {type: 'x'};
         this.mapImage = null;
         this.dimensions = {x: 1, y: 1, z: 1};
@@ -2608,14 +2631,15 @@ class NexusStruct {
         this.operation = {min: 0, current: 0, cap: 0, slots: 0};
         this.npcSlots = null;
         this.population = 0;
-        this.construction = {main: {opalite: 1000}};
+        this.construction = {opalite: 1000};
         this.inventory = null;
     }
 
-    init(soul) {
+    init(soul, id) {
         this.soulRef = soul.name;
+        if (id != null) this.id = id
+            else this.id = generateRandomID('nex');
         this.nickname = `${soul.township.nickname}'s Nexus`;
-        this.id = generateRandomID('nexus');
         allSouls[this.soulRef].township.structs[this.id] = this;
         return this;
     }
@@ -2682,6 +2706,86 @@ class NexusStruct {
         },    
     
     */
+}
+
+class TownGateStruct {
+    constructor() {
+        this.type = 'town gate';
+        this.displayName = 'Town Gate'
+        this.id = null;
+        this.soulRef = null;
+        this.nickname = `The Town Gate`;
+        this.description = `A large gate made of sturdy weathered wood, standing just tall enough to ride a horse through without ducking.`,
+        this.level = 1;
+        this.hp = 1500;
+        this.interactions = {gate: 'gate', default: 'gate'};
+        this.icon = {type: 'x'};
+        this.mapImage = null;
+        this.dimensions = {x: 1, y: 1, z: 1};
+        this.mapSpot = null;
+        this.weight = 0;
+        this.currentWorldID = null;
+        this.currentGPS = null;
+        this.buildLimit = 1;
+        this.operation = {min: 0, current: 0, cap: 0, slots: 0};
+        this.npcSlots = null;
+        this.population = 0;
+        this.construction = {wood: 500};
+        this.inventory = null;
+
+    }
+
+    init(soul, id) {
+        this.soulRef = soul.name;
+        if (id != null) this.id = id;
+        this.nickname = `${soul.township.nickname}'s Town Gate`;
+        if (this.id == null) this.id = generateRandomID('towngate');
+        allSouls[this.soulRef].township.structs[this.id] = this;
+        return this;
+    }
+    
+
+    place(coords) {
+        // this.mapSpot = cross-ref as to where this building lives in the map zone
+        // then should peek at allSouls[this.soulRef].township.map, as well
+        // this is a for-later concept at this stage
+        return this;
+    }
+
+    upgradeCheck(targetLevel) {
+        // this: just return the info on what is needed to upgrade to level X
+        if (targetLevel == null) targetLevel = this.level + 1;
+        switch (targetLevel) {
+            case 2: {
+                break;
+            }
+            case 3: {
+                break;
+            }
+            case 4: {
+                break;
+            }
+            case 5: {
+                break;
+            }
+            case 6: {
+                console.log(`Currently IMPOSHIBIBBLE`);
+                break;
+            }
+            default: break;
+        }
+        // return this; // eh maybe not a chainable method; just return TRUE or FALSE, 
+    }
+
+    upgrade() {
+        // this: do a final check we have the requirements met, and if so, begin construction!
+        // reqs to check: stockpile inventory, weight capacity
+    }
+
+    sidegradeList() {}
+
+    sidegrade() {}
+
 }
 
 // for now, HAX for Zenithica
@@ -3176,12 +3280,17 @@ function saveGameState() {
         dateKey: todaysDateKey,
         allSouls: allSouls,
         allChatventures: allChatventures,
-        allSecrets: allSecrets
+        allSecrets: allSecrets,
+        allWorlds: allWorlds
     };
+
+    console.log(`Attempting to save this gameState: `, gameState);
+    console.log(`Note that allWorlds length with even one world is already ${gameState.allWorlds.length}. Is that a bit much?`)
 
     const filter = { dateKey: todaysDateKey };
     const update = { $set: gameState };
     const options = { new: true, useFindAndModify: false, upsert: true };
+    console.log(`Attempting to save the game state. If you see no further message after this about saving or failing to save, something is hinky.`);
 
     GameState.findOneAndUpdate(filter, update, options)
         .then(updatedResult => {
@@ -3192,7 +3301,7 @@ function saveGameState() {
             // nevermind, just do it below
         })
         .catch(err => {
-            console.log(`We encountered an error saving the user: ${err}.`);
+            console.log(`We encountered an error saving the game state: ${err}.`);
         });
 
 
@@ -3299,29 +3408,73 @@ io.on('connection', (socket) => {
     });
 
     socket.on('request_a_map', request => {
-        // !MHRmap
-        // let newMap = createWorldMap();
-        let newMap = createWorldMap({size: 'small', level: 5, continents: 1, rangeMax: true});
+        // holdover from basic map testing; fine to placekeep this for now, since we can use it to play with map creation logic
+        let newestWorld = createWorldMap({size: 'small', level: 5, continents: 1, rangeMax: true});
         let newSpawnPoint = [0,0];
         
         do {
-            newSpawnPoint = [rando(0, newMap[0].length - 1), rando(0, newMap[0].length - 1)];
-            console.log(`I do loop! Newspawnpoint is `, newSpawnPoint)
-            console.log(`Looks like the square we're on is of the type ${newMap[newSpawnPoint[0]][newSpawnPoint[1]]}`)
-        } while (newMap[newSpawnPoint[0]][newSpawnPoint[1]].biome === 'ocean');
+            newSpawnPoint = [rando(0, newestWorld.map[0].length - 1), rando(0, newestWorld.map[0].length - 1)];
+            // console.log(`I do loop! Newspawnpoint is `, newSpawnPoint)
+            // console.log(`Looks like the square we're on is of the type ${newestWorld.map[newSpawnPoint[0]][newSpawnPoint[1]]}`)
+        } while (newestWorld.map[newSpawnPoint[0]][newSpawnPoint[1]] === 'o');
         console.log(`Picked a delightful new spawn point for you! It is `, newSpawnPoint);
-        socket.emit('new_play_map', {mapData: newMap, spawnPoint: newSpawnPoint});
+        socket.emit('new_play_map', {mapData: newestWorld.map, spawnPoint: newSpawnPoint});
+    });
+
+    socket.on('view_township_management', reqObj => {
+        const { soul } = reqObj;
+        const township = allSouls[soul].township;
+        // MHRmanage
+        let locationData = {
+            name: soul,
+            nickname: township.nickname,
+            description: township.townMap.description,
+            history: township.history.slice(-150),
+            structs: township.structs
+        };
+
+        function createLocationData(soulName) {
+            // since we make locationData SO many times in our code right now, let's function it up!
+            // all we really need to make locationData is the soulName, whereupon we can derive the rest with access to global vars' info
+            // let's add the mapData and management data... whiiiiich we still need to create, huh? ok, divergence! be back in a little bit...
+            const township = allSouls[soulName].township;
+            return {
+                name: soulName,
+            }
+        }
+
+
+    });
+
+    socket.on('search_potential_friends', () => {
+        // hm. it'd be more interesting to throw more information than JUST the name. eventually. :P
+        let potentialFriendsList = Object.keys(allSouls);
+        potentialFriendsList = potentialFriendsList.filter(soulName => thisPlayer.following.indexOf(soulName) == -1);
+
+        console.log(`Sweet, here's our potential list of new friends: `, potentialFriendsList);
+        socket.emit('potential_friends_list', potentialFriendsList);
+    });
+
+    socket.on('follow_soul', followObj => {
+        const { soulName } = followObj;
+        thisPlayer.following.push(soulName);
+        socket.emit('player_update', sanitizePlayerObj(thisPlayer));
     });
 
     socket.on('interact_with_struct', interactionObj => {
         if (thisPlayer?.name == null) return;
         const { structToInteract, interaction } = interactionObj; 
-        console.log(`It appears ${thisPlayer.name} wants to interact with ${structToInteract.nickname} by doing a/n ${interaction}?`);
+        // console.log(`It appears ${thisPlayer.name} wants to interact with ${structToInteract.nickname} by doing a/n ${interaction}?`);
 
         // console.log(`STRUCT INTERACTION REQUEST. structToInteract is `, structToInteract);
-        
-        // ok! this is working great so far. 
-        structBlueprints[structToInteract.type][interaction](thisPlayer, thisPlayer.township.structs[structToInteract.type]);
+        // structBlueprints[structToInteract.type][interaction](thisPlayer, thisPlayer.township.structs[structToInteract.type]);
+        // !MHRgate
+
+        // so! turns out we can't save functions in JSON, and we're doing... a lot of JSON shenanigans.
+        // rats. so all functions are going to have to live in the server's code. best we can do is reference them here.
+
+        // ok, this works... we can run with it as long as we bake in all structInteractions properly
+        structInteractions[structToInteract.type][interaction](thisPlayer, structToInteract);
 
         // what should this socket return? anything in particular? let's brainstorm...
         /*
@@ -3715,54 +3868,139 @@ io.on('connection', (socket) => {
         let brandNewTownship = {
             nickname: `${brandNewPlayer.name}'s Township`,
             soulRef: `${brandNewPlayer.name}`,
+            worldID: null,
+            wps: [0,0],
+            gatheringCapacity: 2,
+            gatheringCoords: [],
+            constructionCapacity: 1,
+            constructionProjects: {}, // within township walls or within management radius
             icon: {},
-            aesthetic: {}, // for changing look of the chatroom around, ultimately
-            npcs: {},
-            vibe: {}, // vibe changes based on available structures as well as npc's and their 'presence'/influence
-            structs: {}, // I live all the way out here now :P
+            aesthetic: {}, // for changing look of the chatroom/township visit around, ultimately
+            npcs: {}, // currently unsupported
+            vibe: {}, // currently wildly ignored; may come back later
+            structs: {},
             townMap: {
-                description: `You are in a small township governed by ${brandNewPlayer.name}. It is currently rather bare.`,
-                // structs: {
-                //     nexus: {
-                //         nickname: `${brandNewPlayer.name}'s Town Nexus`,
-                //         description: 'A jagged crownlike blossom of translucent blue crystal, standing twice the height of a tall man, that acts as the heart of the township.',
-                //         innerDescription: 'How did you even get IN here? Crystals! Crystals everywhere!',
-                //         level: 0,
-                //         exp: 0,
-                //         type: 'nexus',
-                //         interactions: {},
-                //         icon: {},
-                //         gps: {},
-                //         dimensions: {x: 1, y: 1, z: 1},
-                //         construction: {rawCrystal: 10},
-                //         boosts: {township: {}, player: {}},
-                //         inventory: {construction: {}},
-                //         income: {},
-                //         maintenance: {}
-                //     }
-                // },
+                description: `You are in a small township governed by ${brandNewPlayer.name}. It rests in the center of a large savanna, a soothing expanse of gently rolling grasslands extending away from the town walls, the occasional majestic tree standing proudly in the distance.`,
                 map: []
             },
-            population: 0,
+            // population: 0, // will probably go ahead and nix this, no use in current setup
             events: {},
             history: [],
             lastTick: null
         };
         brandNewPlayer.township = {...brandNewTownship};
         
-        // HERE: use most current struct-placing model to place starting structs
-        // latest: probably going to go with struct-specific classes instead of blueprints-based base Struct class
-        brandNewPlayer.township.structs.perimeter = new Struct(structBlueprints.perimeter);
-        // tavern goes here
-        // classBuilding goes here
+        /*
+        
+        !MHRstructs (ALLSTRUCTS BRAINSTORM for the old list)
+            TOWNSHIP MANAGEMENT CONCEPTS:
+            - each struct and upgrade confers a 'weight'... generally upgrades are 'cheaper' than full new buildings?
+                - weightCapacity can be derived or explicit... let's go with derived? player level plus other-building mods
+                - ooh, structWeight and townWeight capacities separate? so first is how high things can be upgraded, second is how many things can be built
+                - I like it! let's go with that
+            - gathering parties available at start is 2
+            
+            - need variable to know where gathering parties are currently located 
+            - don't forget the 'current spot' (req worldID != null)
+            - need to know boosts conferred by buildings for gathering endeavors
+            - need stockpile data
+            - need construction data (what's being constructed, how many constructions are currently supported)
+
+            - ideally, we decide on how materials work for equipment and scaling so we can decide how our initial tradepost (upgrades into something else?)
+                - allocate to trading post 'income,' or let it happen auto-magically?
+                - hm manually let them skim, and let that skim turn into products and MUNNEY for the ts
+                - eh maybe it just goes based on current income? instead of doing extra math? hmmmm
+
+
+            TOWNSHIP/WORLDBUILD STRUCT BRAINSTORM+
+            - (external) road, which can only be built connecting from township or to another road (needs an 'anchor' adjacent tile)... now with moar TRADE
+                - actually, maybe road makes it easier to transport, increasing raw income from a tile by x%
+                - also does -threat while traveling
+            - (external) dock - +resources, enables launching of light seacraft for shallow sea/freshwater exploration
+            - (external) shipyard - ++resources, enables launching of proper boats
+            - (external) mine: +minerals from hills, mountain(s), dryland
+            - (external) guard tower: --threat in a radius, stacks with road; probably triggers events sometimes
+                - can be specialized to boost game income... shootin' rabbits
+
+            ! = starter struct
+            -! nexus
+            -! town gate
+            -! (internal) tradehall - source of gathering/assigning external doots to get materials (+2 to start)
+                - also serves as basic 'processing' capacity, turning ore into metal and such... slow but steady
+            -! (internal) buildhall (1 slot to start, no mods)
+            -! (internal) well: +1 water, upgrade for MOAR WATER; can potentially irrigate from rivers/freshwater to also add +1 water to local tiles
+            -! (internal) storage (starts as stockpile, can get fancier later)
+            -! (internal) inn (with built-in tavern for tavern shenanigans)
+            -! (internal) tradepost... starter struct that can upgrade as local shop as well as trade generator (based on wares, and later on a demand system)
+                - first shop, assumed level 10 competency at crafting starter-tier gear      
+            -! (internal) class trainer structs: sanctuary, tower, den, arena/gymnasium
+           
+            - (internal) town hall - adds events, enhances trade, enables special options, increases weight potential
+            - (internal) specialized crafters: blacksmith, clothier, bowyer, leatherworker, artificer, etc.
+            - (internal) mine/dungeon: grab some metal and stone from the local earth, but beware of digging too greedily and deep!
+            - (internal) guardhouse (reduces encounter level nearby)
+            - (internal) refinement buildings: forge, lumberyard, etc. to turn raw ore/wood into ingots/lumber, animals into meat/hide/bone, etc.
+            - (internal)specialization buildings: more specific resources from some selection of particular tiles
+                - fisherman, hunter, miner, quarrymaster
+                - jwt smb vpu nda clf ghr M
+
+            - ok, so what's our projected 'income,' how often, and what's the build requirement projected to be (base, construction upgrades can help, plus friends)
+
+            - and FLUX
+
+
+            WORLD GETTIN' MORE DANGEROUS
+            - a later-concept, but should it happen over time? ... or with resources gathered? hm
+
+
+            eh while we're ponderin'...
+            GEAR!
+            - I like trinkets being flat stats
+            - accessories for wide usage, but generally specific action boosts or resistances
+            - simple stat basis... a strength-based weapon boosts ALL listed stats by strength stat, so try to find gear that matches your build
+
+            so players have 12 * 6 stats + 8, so can pretty readily have 2 stats at 20
+                - currently set up to have stats go up by seed/10, so definitely gaining 1.2 (+6 per five levels due to flooring) minimum, 2 max from this
+                - then CLASS STATS and CLASS MODS come into play
+                - 0.7 average times 6 stats = 4.2 total level-up points in the class
+                - fighter: 1.2str, 1.0agi, 1.0vit, 0.4wil, 0.3int, 0.3wis
+                - rogue: 0.8str, 1.2agi, 0.8vit, 0.3wil, 0.8int, 0.3wis
+                - sorcerer: 0.3str, 0.6agi, 0.3vit, 1.2wil, 1.0int, 0.8wis
+                - sympath: 0.4str, 0.8agi, 0.4vit, 0.6wil, 0.8int, 1.2wis
+            - ok, we'll do seed/20 for stats, which sets the class stats up to be more dramatic, which I'm fine with
+
+            - where'd we end up on those weapon stats? ok, flat stats, but the equip calculation 2/3 favors the lower stat in any case
+            - done and done
+            - now all we have to do is figure out the rough scaling... let's sketch!
+            - weapons/gear should roughly scale in a way that matches the stat growth of a projected character/mob
+            - 2.2 is 'peak' scaling, ideal stats matched with ideal class (20 strength fighter, 20 agi rogue, etc.), but that'll be assumed to be pretty extreme atm
+                - 20 stat base + 2 per level is "PEAK" scaling, S rank for that attribute
+                - we'll say 16 stat + 1.6 total scaling is 'good', A rank
+                - we'll say B is 12 + 1.2
+                - C is 8 + 0.8
+                - D would be 4 + 0.4
+                - F... is nothin' :P
+                - so by default, maybe an A and C stat on gear, with mods and/or mats being able to kick 'em up a rank
+
+
+            MATERIALS (redux, reduxed)
+            - should probably keep it relatively simple
+            - basic typing and level; what kind of material (metal, etc.), level it supports, etc.
+
+            IN THE BEGINNING,
+            - just being able to get basic materials with some rare stuff in our basic maps would be fantastic
+            - and being able to build up a bit, help each other out, and go on chatventures, getting cool gear and having interesting encounters
+        
+        */
 
 
 
         // HERE: then whip through all those structs and apply the structBlueprints[structType].init(building, area) to give them their starting 'stuff' where applicable
-        Object.keys(brandNewPlayer.township.structs).forEach(structID => {
-            // NOTE: we can get away with this less specific calling of structID rather than digging up type because upon init all these ids === type
-            structBlueprints[structID].init(brandNewPlayer.township.structs[structID], brandNewPlayer.township);
-        });
+        // ... this may be an 'old way' to do it? pending removal.
+        // Object.keys(brandNewPlayer.township.structs).forEach(structID => {
+        //     // NOTE: we can get away with this less specific calling of structID rather than digging up type because upon init all these ids === type
+        //     structBlueprints[structID].init(brandNewPlayer.township.structs[structID], brandNewPlayer.township);
+        // });
 
         // HERE: 'read the room' and throw some NPC's down :P
 
@@ -3837,19 +4075,6 @@ io.on('connection', (socket) => {
         brandNewPlayer.followedBy = [];
         brandNewPlayer.relationships = {};
 
-        // currently leaning towards having the playstack set up back here so we have 'positional information' about the player
-        brandNewPlayer.playStack = {
-            gps: 'Zenithica',
-            nickname: 'Zenithica',
-            target: null,
-            chatventure: null,
-            mode: '',
-            doing: 'none',
-            at: 'none',
-            overlay: 'none',
-            data: {} // currently this is kind of a vestigial element, but we'll keep it there for now
-        };
-
         // -ideally-, we init all sorts of expected values/actions here so we don't have to later :P
         /*
         
@@ -3858,6 +4083,8 @@ io.on('connection', (socket) => {
 
             I'm not sure we need/want to check all these 'on the fly' for achievements...
             ... maybe have it tied to one-off player-driven events, like resting, etc. (Morrowind Model of Leveling Up :P)
+
+            Anyway, let's put a pin in this history concept for now; not critical for core gameplay, which is the current goal
         
         */
         brandNewPlayer.history = {
@@ -3887,7 +4114,13 @@ io.on('connection', (socket) => {
         //
         socket.join(brandNewPlayer.name);
         allSouls[brandNewPlayer.name] = JSON.parse(JSON.stringify(brandNewPlayer));
-        let newNexus = new NexusStruct().init(brandNewPlayer);
+        
+        let newNexusID = generateRandomID('nexus');
+        let newGateID = generateRandomID('towngate');
+        allSouls[brandNewPlayer.name].structs = {};
+        allSouls[brandNewPlayer.name].structs[newNexusID] = new NexusStruct().init(brandNewPlayer, newNexusID);
+        allSouls[brandNewPlayer.name].structs[newGateID] = new TownGateStruct().init(brandNewPlayer, newGateID);
+
 
         // actually, the PARTY ref will be stale due to the parsing... so go back and 'refresh' intended object references, just in case
         // what other elements need this treatment?
@@ -3895,17 +4128,61 @@ io.on('connection', (socket) => {
 
         thisPlayer = allSouls[brandNewPlayer.name];
 
-        // !MHRbrandnewplayer
-        // okiedokie, so when they first start out, they should have their own personal little tutorial world
-        // let's add some extra logic to make that a single-landmass world of low level (5) and add 'township placement' automagically
-        // having a fxn for that would be best, however, since it'll be something that we do every so often
-        // once the world exists, pop it into allWorlds, and have our TOWNSHIP GOES INTO WORLD fxn reference each other
 
-        // HERE: send token and player data down using the sanitizePlayerObj fxn
-        // we'll probably set up a unique socket event so we can initialize the first Chatventure
-       
-        // looks alright so far, but we need the 'access points' for that first Chatventure here, too!
-        socket.emit('upon_creation', {playerData: sanitizePlayerObj(thisPlayer), token: newPlayerToken});
+        // it'd be better to find some way to have a 'menu' of unused tutorial worlds sitting on a shelf ready to go
+        // that'd be doable with a separate API, I suppose... just give it instructors to churn out some worlds here and there and keep them available for use
+        // we could even do it upon player request, but since that's a bit slow, we'd have to figure out a good way to keep it non-blocking
+        let newMap = createWorldMap({size: 'small', level: 5, continents: 1, rangeMax: true, creator: brandNewPlayer.name});
+        
+        let newSpawnPoint = newMap.savannaTileGPS;
+        // trying x, y to hope for the best here :P
+        newMap.map[newSpawnPoint[0]][newSpawnPoint[1]] = 'v00T'; // not wholly safe, so we should do a substring replace in case those middle values end up being different
+
+        // since the world is new, we don't have to worry about checking if something's 'in the way' when we plunk down here... yet
+        // if we add automatically generating savanna structs, we miiight have to be more concerned?
+
+        // OK! so allWorlds[id] should be LIVE as of now, soooo
+        allWorlds[newMap.id] = newMap;
+
+        // placeholder; eventually we'll want to provide only a useful subset of the actual township info :P
+        // allWorlds[newMap.id].map[newSpawnPoint[0]][newSpawnPoint[1]].structs.township = brandNewPlayer.township;
+        // allWorlds[newMap.id].townships[brandNewPlayer.name] = [newSpawnPoint[0], newSpawnPoint[1]];
+        allWorlds[newMap.id].townships[`${newSpawnPoint[0]},${newSpawnPoint[1]}`] = thisPlayer.name;
+
+        thisPlayer.township.worldID = newMap.id;
+        thisPlayer.township.wps = [newSpawnPoint[0], newSpawnPoint[1]];
+
+        // currently leaning towards having the playstack set up back here so we have 'positional information' about the player
+        // let's try to set this up so we get relevant location data for their own baby township
+        thisPlayer.playStack = {
+            gps: thisPlayer.name,
+            nickname: thisPlayer.township.nickname,
+            wps: newSpawnPoint,
+            worldID: newMap.id,
+            target: null,
+            chatventure: null,
+            mode: '',
+            doing: 'none',
+            at: 'none',
+            overlay: 'none',
+            menu: null,
+            battle: null
+        };
+
+        // we can do a little push for flavor... add a quick bit of history event-age, some messages for the creator
+
+        // we'll need locationData here, as well
+        let locationData = {
+            name: thisPlayer.name,
+            nickname:thisPlayer.township.nickname,
+            description: thisPlayer.township.townMap.description,
+            history: thisPlayer.township.history.slice(-150),
+            structs: thisPlayer.township.structs
+        };
+
+        // MHRnao
+        socket.emit('upon_creation', {playerData: sanitizePlayerObj(thisPlayer), token: newPlayerToken, locationData: locationData, worldMap: newMap});
+
 
         return saveGameState();
 
@@ -3940,7 +4217,7 @@ io.on('connection', (socket) => {
 
     socket.on('request_township_visit', townReqObj => {
         const { name } = townReqObj;
-        // console.log(`How lovely! Someone wants to visit `, name);
+        console.log(`How lovely! Someone wants to visit `, name);
         thisPlayer.playStack.gps = name;
     
         let locationData = {
@@ -3948,8 +4225,11 @@ io.on('connection', (socket) => {
             nickname: allSouls[name].township.nickname,
             description: allSouls[name].township.townMap.description,
             history: allSouls[name].township.history.slice(-150),
-            structs: allSouls[thisPlayer.playStack.gps].township.structs
+            structs: allSouls[name].township.structs
         };
+        console.log(`The location data for ${name} is thus: `, locationData);
+        // yup, all of the struct functions just... aren't there anymore, for some totally unknown reason?
+        // console.log(`HI! ${thisPlayer.name} is attempting to visit a new township. HERE IS ALL THAT TOWNSHIP DATA: `, allSouls[thisPlayer.playStack.gps].township)
         socket.join(name);
         return socket.emit('location_update', locationData);
     });
@@ -4133,18 +4413,23 @@ GameState.findOne({ dateKey: todaysDateKey })
                         const freshGameObject = {
                             allSouls: {
                                 Zenithica: {
+                                    name: 'Zenithica',
                                     township: {
                                         townMap: {
-                                            description: `Husky husks husk around some crystals. Spooooky! Fooky?`,
+                                            description: `Two wide perpindicular cobblestone streets cross between tightly huddled, stern square buildings of dark mottled stone. These streets stop abruptly a few blocks in any direction, blocked by immensely tall walls that seem to hold up the very sky itself. To the north, a glance below the always-midday sun, a single crystalline spire is just visible above the wall.`,
                                         },
-                                        nickname: '',
+                                        structs: {},
+                                        nickname: 'Zenithica',
                                         history: []                                        
                                     }
                                 }
                             },
                             allChatventures: {},
-                            allSecrets: {}
+                            allSecrets: {},
+                            allWorlds: {}
                         }
+
+             
 
                         // HERE: assuming that went well enough, saveGameState() so we're good to go for the future
 
@@ -4183,6 +4468,16 @@ function loadGame(gameObject) {
     allSouls = gameObject.allSouls;
     allChatventures = gameObject.allChatventures;
     allSecrets = gameObject.allSecrets;
+    allWorlds = gameObject.allWorlds;
+    console.log(`Hi! Loading game object: `, gameObject);
+
+    if (allSouls['Zenithica'].structs == null) {
+        console.log(`Oh, dear. Zenithica is bare. Can't let that stand. At least have a Nexus, Z!`);
+        allSouls.Zenithica.structs = {};
+        // line below is what causes SUPER DOOM.
+        let newNexusID = generateRandomID('nex');
+        allSouls['Zenithica'].structs[newNexusID] = new NexusStruct().init(allSouls['Zenithica'], newNexusID);
+    }
 
     // ooh we should add ouch and any other 'universal' functions to all our players
     Object.keys(allSouls).forEach(playerName => {
@@ -4192,7 +4487,7 @@ function loadGame(gameObject) {
         }
     })
 
-    updateGame(allSouls, allChatventures, allSecrets);
+    updateGame(allSouls, allChatventures, allSecrets, allWorlds);
 
     gameSaveTimeout = setTimeout(() => saveGameState(), standardSaveInterval);
 
@@ -4208,7 +4503,7 @@ function loadGame(gameObject) {
     allSouls.Zenithica.township.wake();
 }
 
-function updateGame(allSouls, allChatventures, allSecrets) {
+function updateGame(allSouls, allChatventures, allSecrets, allWorlds) {
     // haxxy game update engine :P
     if (allSouls.Zenithica.township.nickname == null) allSouls.Zenithica.township.nickname = 'Zenithica';
 }
@@ -4430,11 +4725,13 @@ function createWorldMap(seedObject) {
         size: stringy,
         level: number,
         continents: number,
-        rangeMax: false
+        rangeMax: false,
+        creator: soulRef
     }
     
     */
 
+    if (seedObject?.creator == null) seedObject.creator = 'Zenithica';
     if (seedObject?.size == null) seedObject.size = 'small';
     if (seedObject?.rangeMax == null) seedObject.rangeMax = true;
 
@@ -4485,8 +4782,8 @@ function createWorldMap(seedObject) {
     // the world is all ocean by default
     for (let y = 0; y < mapSize; y++) {
         for (let x = 0; x < mapSize; x++) {
-            newWorldMap[y][x] = new TileArea().level(worldLevel).setBiome('ocean'); 
-            biomeRecords.ocean.push([y,x]); 
+            newWorldMap[y][x] = 'o000'; // let's try o for ocean :P
+            biomeRecords.ocean.push([y,x]);
         }
     }
 
@@ -4533,7 +4830,7 @@ function createWorldMap(seedObject) {
             seed: 'flatland',
             type: 'flatland',
             record: [], // doop de doo... object or array for this? hrmsicles...
-            tileRecord: {forest: [], wetland: [], desert: [], freshwater: [], bumpy: [], flatland: [], mountain: [], ocean: []},
+            tileRecord: {forest: [], wood: [], jungle: [], taiga: [], wetland: [], swamp: [], marsh: [], bog: [], desert: [], arctic: [], dunescape: [], freshwater: [], cruisewater: [], lake: [], frostwater: [], bumpy: [], greenhill: [], hill: [], frostmound: [], flatland: [], savanna: [], plain: [], tundra: [], mountain: [], ocean: []},
             latitudeRecord: {},
             innerTiles: []
         }
@@ -4610,7 +4907,7 @@ function createWorldMap(seedObject) {
 
                 if ((generator.rangeMax != null) && (checkMinDistance(generator.gps[0], generator.spawn[0], mapSize) > generator.rangeMax || checkMinDistance(generator.gps[1], generator.spawn[1], mapSize) > generator.rangeMax)) generator.gps = [...generator.spawn];
 
-                if (newWorldMap[generator.gps[0]][generator.gps[1]].biome === 'ocean') {
+                if (newWorldMap[generator.gps[0]][generator.gps[1]][0] === 'o') {
                     newWorldMap[generator.gps[0]][generator.gps[1]] = currentBiome;
                     generator.tiles[currentBiome] -= 1;
                     if (generator.tiles[currentBiome] === 0) delete generator.tiles[currentBiome];
@@ -4650,7 +4947,7 @@ function createWorldMap(seedObject) {
                         break;
                     };
                 }
-                console.log(`Placed a tile! NEW GPS IS ${generator.gps}, while SPAWN is ${generator.spawn}`)
+                // console.log(`Placed a tile! NEW GPS IS ${generator.gps}, while SPAWN is ${generator.spawn}`)
             } while (numOfTilesToPlace > 0);
 
         } while (Object.keys(generator.tiles).length > 0);
@@ -4671,22 +4968,22 @@ function createWorldMap(seedObject) {
                     let xRight = x === newWorldMap[0].length - 1 ? 0 : x + 1;
                     let xLeft = x === 0 ? newWorldMap[0].length -1 : x- 1;
                     if (newWorldMap[yUp][x] === 'bumpy') bumpySides += 1;
-                    if (newWorldMap[yUp][x]?.biome === 'ocean') bumpySides -= 1;
+                    if (newWorldMap[yUp][x][0] === 'o') bumpySides -= 1;
                     if (newWorldMap[yDown][x] === 'bumpy') bumpySides += 1;
-                    if (newWorldMap[yDown][x]?.biome === 'ocean') bumpySides -= 1;
+                    if (newWorldMap[yDown][x][0] === 'o') bumpySides -= 1;
                     if (newWorldMap[y][xRight] === 'bumpy') bumpySides += 1;
-                    if (newWorldMap[y][xRight]?.biome === 'ocean') bumpySides -= 1;
+                    if (newWorldMap[y][xRight][0] === 'o') bumpySides -= 1;
                     if (newWorldMap[y][xLeft] === 'bumpy') bumpySides += 1;
-                    if (newWorldMap[y][xLeft]?.biome === 'ocean') bumpySides -= 1;
+                    if (newWorldMap[y][xLeft][0] === 'o') bumpySides -= 1;
 
                     if (newWorldMap[yUp][xRight] === 'bumpy') bumpySides += 1;
-                    if (newWorldMap[yUp][xRight]?.biome === 'ocean') bumpySides -= 1;
+                    if (newWorldMap[yUp][xRight][0] === 'o') bumpySides -= 1;
                     if (newWorldMap[yUp][xLeft] === 'bumpy') bumpySides += 1;
-                    if (newWorldMap[yUp][xLeft]?.biome === 'ocean') bumpySides -= 1;
+                    if (newWorldMap[yUp][xLeft][0] === 'o') bumpySides -= 1;
                     if (newWorldMap[yDown][xRight] === 'bumpy') bumpySides += 1;
-                    if (newWorldMap[yDown][xRight]?.biome === 'ocean') bumpySides -= 1;
+                    if (newWorldMap[yDown][xRight][0] === 'o') bumpySides -= 1;
                     if (newWorldMap[yDown][xLeft] === 'bumpy') bumpySides += 1;
-                    if (newWorldMap[yDown][xLeft]?.biome === 'ocean') bumpySides -= 1;
+                    if (newWorldMap[yDown][xLeft][0] === 'o') bumpySides -= 1;
                     if (bumpySides >= 4) {
                         
                         newWorldMap[y][x] = 'mountain';
@@ -4704,22 +5001,22 @@ function createWorldMap(seedObject) {
         // it definitely CAN be more optimized, though... plenty of ways to check 'ocean tiles' that fall within a certain range of our new landmass only and not the entire middle of the ocean, for example
         for (let y = 0; y < newWorldMap[0].length; y++) {
             for (let x = 0; x < newWorldMap[0].length; x++) {
-                if (newWorldMap[y][x].biome === 'ocean') {
+                if (newWorldMap[y][x][0] === 'o') {
                     let landSides = 0;
                     // QUADRI-DIRECTIONAL CHECK
                     let yUp = y === 0 ? newWorldMap[0].length -1 : y - 1;
                     let yDown = y === newWorldMap[0].length - 1 ? 0 : y + 1;
                     let xRight = x === newWorldMap[0].length - 1 ? 0 : x + 1;
                     let xLeft = x === 0 ? newWorldMap[0].length -1 : x- 1;
-                    if (newWorldMap[yUp][x]?.biome !== 'ocean') landSides += 1;
-                    if (newWorldMap[yDown][x]?.biome !== 'ocean') landSides += 1;
-                    if (newWorldMap[y][xRight]?.biome !== 'ocean') landSides += 1;
-                    if (newWorldMap[y][xLeft]?.biome !== 'ocean') landSides += 1;
+                    if (newWorldMap[yUp][x][0] !== 'o') landSides += 1;
+                    if (newWorldMap[yDown][x][0] !== 'o') landSides += 1;
+                    if (newWorldMap[y][xRight][0] !== 'o') landSides += 1;
+                    if (newWorldMap[y][xLeft][0] !== 'o') landSides += 1;
 
-                    if (newWorldMap[yUp][xRight]?.biome !== 'ocean') landSides += 1;
-                    if (newWorldMap[yUp][xLeft]?.biome !== 'ocean') landSides += 1;
-                    if (newWorldMap[yDown][xRight]?.biome !== 'ocean') landSides += 1;
-                    if (newWorldMap[yDown][xLeft]?.biome !== 'ocean') landSides += 1;
+                    if (newWorldMap[yUp][xRight][0] !== 'o') landSides += 1;
+                    if (newWorldMap[yUp][xLeft][0] !== 'o') landSides += 1;
+                    if (newWorldMap[yDown][xRight][0] !== 'o') landSides += 1;
+                    if (newWorldMap[yDown][xLeft][0] !== 'o') landSides += 1;
                     if (landSides >= 5) {
                         // oh we're almost totally surrounded by land, we're fresh water now, splash!
                         newWorldMap[y][x] = 'freshwater';
@@ -4769,53 +5066,125 @@ function createWorldMap(seedObject) {
 
                 
                 let biomeType = weightChoice({result: 'tropical', weight: tropicalWeight}, {result: 'temperate', weight: temperateWeight}, {result: 'polar', weight: polarWeight});
-                
+                //tileRecord: {forest: [], wood: [], jungle: [], taiga: [], wetland: [], swamp: [], marsh: [], bog: [], desert: [], arctic: [], dunescape: [], freshwater: [], cruisewater: [], lake: [], frostwater: [], bumpy: [], greenhill: [], hill: [], frostmound: [], flatland: [], savanna: [], plain: [], tundra: [], mountain: [], ocean: []},
                 // console.log(`Okie dokie! Now we can seed the biome type ${biomeType} which is level ${biomeLevel}, which is ${typeof biomeLevel}`)
                 switch (newWorldMap[x][y]) {
                     case 'forest': {
-                        if (biomeType === 'tropical') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('jungle');
-                        if (biomeType === 'temperate') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('wood');
-                        if (biomeType === 'polar') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('taiga');
+                        if (biomeType === 'tropical') {
+                            newWorldMap[x][y] = 'j000';
+                            generator.tileRecord.jungle.push([x,y]);
+                            break;
+                        }
+                        if (biomeType === 'temperate') {
+                            newWorldMap[x][y] = 'w000';
+                            generator.tileRecord.wood.push([x,y]);
+                            break;
+                        }
+                        if (biomeType === 'polar') {
+                            newWorldMap[x][y] = 't000';
+                            generator.tileRecord.taiga.push([x,y]);
+                            break;
+                        }
                         break;
                     }
                     case 'wetland': {
-                        if (biomeType === 'tropical') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('swamp');
-                        if (biomeType === 'temperate') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('marsh');
-                        if (biomeType === 'polar') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('bog');
+                        if (biomeType === 'tropical') {
+                            newWorldMap[x][y] = 's000';
+                            generator.tileRecord.swamp.push([x,y]);
+                            break;
+                        }
+                        if (biomeType === 'temperate') {
+                            newWorldMap[x][y] = 'm000';
+                            generator.tileRecord.marsh.push([x,y]);
+                            break;
+                        }
+                        if (biomeType === 'polar') {
+                            newWorldMap[x][y] = 'b000';
+                            generator.tileRecord.bog.push([x,y]);
+                            break;
+                        }
                         break;
                     }
                     case 'flatland': {
-                        if (biomeType === 'tropical') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('savanna');
-                        if (biomeType === 'temperate') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('plain');
-                        if (biomeType === 'polar') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('tundra');
+                        if (biomeType === 'tropical') {
+                            newWorldMap[x][y] = 'v000';
+                            generator.tileRecord.savanna.push([x,y]);
+                            break;
+                        }
+                        if (biomeType === 'temperate') {
+                            newWorldMap[x][y] = 'p000';
+                            generator.tileRecord.plain.push([x,y]);
+                            break;
+                        }
+                        if (biomeType === 'polar') {
+                            newWorldMap[x][y] = 'u000';
+                            generator.tileRecord.tundra.push([x,y]);
+                            break;
+                        }
                         break;
                     }
                     case 'desert': {
-                        if (biomeType === 'tropical') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('dunescape');
-                        if (biomeType === 'temperate') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('desert');
-                        if (biomeType === 'polar') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('arctic');
+                        if (biomeType === 'tropical') {
+                            newWorldMap[x][y] = 'n000';
+                            generator.tileRecord.dunescape.push([x,y]);
+                            break;
+                        }
+                        if (biomeType === 'temperate') {
+                            newWorldMap[x][y] = 'd000';
+                            generator.tileRecord.desert.push([x,y]);
+                            break;
+                        }
+                        if (biomeType === 'polar') {
+                            newWorldMap[x][y] = 'a000';
+                            generator.tileRecord.arctic.push([x,y]);
+                            break;
+                        }
                         break;
                     }
                     case 'freshwater': {
-                        if (biomeType === 'tropical') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('cruisewater');
-                        if (biomeType === 'temperate') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('lake');
-                        if (biomeType === 'polar') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('frostwater');
+                        if (biomeType === 'tropical') {
+                            newWorldMap[x][y] = 'c000';
+                            generator.tileRecord.cruisewater.push([x,y]);
+                            break;
+                        }
+                        if (biomeType === 'temperate') {
+                            newWorldMap[x][y] = 'l000';
+                            generator.tileRecord.lake.push([x,y]);
+                            break;
+                        }
+                        if (biomeType === 'polar') {
+                            newWorldMap[x][y] = 'f000';
+                            generator.tileRecord.frostwater.push([x,y]);
+                            break;
+                        }
                         break;
                     }
                     case 'bumpy': {
-                        if (biomeType === 'tropical') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('greenhill');
-                        if (biomeType === 'temperate') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('hill');
-                        if (biomeType === 'polar') newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('frostmound');
+                        if (biomeType === 'tropical') {
+                            newWorldMap[x][y] = 'g000';
+                            generator.tileRecord.greenhill.push([x,y]);
+                            break;
+                        }
+                        if (biomeType === 'temperate') {
+                            newWorldMap[x][y] = 'h000';
+                            generator.tileRecord.hill.push([x,y]);
+                            break;
+                        }
+                        if (biomeType === 'polar') {
+                            newWorldMap[x][y] = 'r000';
+                            generator.tileRecord.frostmound.push([x,y]);
+                            break;
+                        }
                         break;
                     }
                     case 'ocean': {
-                        // ok, so setting this tileArea is what causes it to hang indefinitely... and I legitimately have no idea why.
-                        // console.log(`I am OCEAN! But I sure wish I could be a TILE.`);
-                        // newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('ocean');
+                        // solved for now! but we do it upon init, so until we segregate by latitude this is a blank placeholder
+                        // should be 'o' next :P
                         break;
                     }
                     case 'mountain': {
-                        newWorldMap[x][y] = new TileArea().level(biomeLevel).setBiome('mountain');
+                        newWorldMap[x][y] = 'M000';
+                        generator.tileRecord.mountain.push([x,y]);
                         break;
                     }
                     
@@ -4856,56 +5225,20 @@ function createWorldMap(seedObject) {
 
 
 
-
-
-    /*
-
-        also have to decide on 'random encounter rate' as well as rules for levels/types of mobs/etc. we'd run into
-
-        'type' can be used both for drawing and other considerations
-
-        mobFactions for fauna and mob generation logic? DQ/FF grid style overlay? peninsula of power? :P
-        ... RPG progression laws: knowing the seed (can range from this seed GPS), level increases the further away you get
-        ... additional landmasses attempt to spawn further and further away? or we can have 'level jumps' if you go the 'wrong way'
-
-        oh, we should add roads. and rivers. probably drawn 'over' ... river first, then if road, 'bridge'
-        - opens up the possibility of multiple road/bridge types
-        - 'blocking' structures
-        - mountains vs hills? 
-        - beaches?
-
-        rivers might be chunked into smaller bits to allow more flow directionality... or not, hrm
+    // - when making the world, add: mapData (map), worldData (id, souls: {soulRef1: true, soulRef2: true}, creatorRef: creatorSoulRef)
+    let newWorldMapObj = {
+        id: generateRandomID('world'),
+        townships: {}, // townships plopped down in here somewhere with their coords for quick reference
+        creator: seedObject.creator,
+        level: worldLevel,
+        map: newWorldMap,
+        savannaTileGPS: pickOne(landMassGenerators[0].tileRecord.savanna) // haxxy but efficient for now!
+    }
     
-
-        while we're here, it's about time to work on TOWNSHIP PLACEMENT and TOWNSHIP MANAGEMENT
-        - Civ Model based, but how do we want to do it?
-
-        so our township is down and we automatically get 'all' the resources present in our 'home tile'
-            - we can have structs that improve 'extraction' from home base
-            - what sorts of places we can put our township down on can improve with work, as well
-            - special 'township structs' can be built to facilitate getting going pretty quickly in a given specialization
-        
-        one 'work crew' per tile, or multiple? ...
-        how do we figure out who's on what duty? color-code? 
-        CIV style was just slap down on a tile until you hit population number, but that's not quite the model here
-        
-        abstracted - get a number of "work squares" depending on (something) and they extract everything from a tile they can
-            - township structs boost effectiveness
-            - on-tile structs boost effectiveness
-            ... so ideally, for best effect, you maximize your 'township tile' output, then do what you can with the target tile(s) to make them productive+
-
-
-        also consider 'absolute amounts' rather than 'fractional amounts'... in only the rarest cases would we ever need "hilly" to be 30x30 squares :P
-        - so we'd keep the initially decided upon amounts of everything, but only drop 5-10 of them at a time
-        
-        we could also refactor the OG snake to drop fascinating lines of everything-but-ocean as we go
-
-        BLUNT FORCE WATER DESALINATOR/CHECKER: I'm ok with it, but how to set it up?
-        
     
-    */
+    allWorlds[newWorldMapObj.id] = newWorldMapObj;
 
-    return newWorldMap;
+    return newWorldMapObj;
 }
 // ok, can console.table and as long as it's within a certain size we're golden... let's see what we can build!
 // createWorldMap();
@@ -4914,8 +5247,8 @@ function checkMinDistance(index, targetIndex, length) {
     // given an array of length 'length,' what's the smallest distance between index and targetIndex?
     const distance1 = Math.abs(targetIndex - index);
     const distance2 = length - distance1;
-    console.log(`Checking a distance between ${targetIndex} and ${index}, which could either be ${distance1} or ${distance2}.`);
-    console.log(`Obviously I'll tell you that the minimum of those two is ${distance1 < distance2 ? distance1 : distance2}.`);
+    // console.log(`Checking a distance between ${targetIndex} and ${index}, which could either be ${distance1} or ${distance2}.`);
+    // console.log(`Obviously I'll tell you that the minimum of those two is ${distance1 < distance2 ? distance1 : distance2}.`);
     if (distance1 < distance2) return distance1;
     return distance2;
 
@@ -4937,3 +5270,18 @@ function weightChoice(...choices) {
     }
     return console.log(`Somehow, we didn't land on ANY weight option. Logic flaw. Whoops.`);
 }
+
+/*
+
+    MOAR BRAINSTORMS kathooooom
+    TO STORM:
+    [_] Township structs, costs, what they do, etc.
+
+    [_] Level stats (seed, class)
+    [_] Equipment stats
+        - both of the above are so we can reasonably scale encounters
+
+    [_] Responsiveness - currently canvas maps are very... not great if screen is smaller than 550px
+    
+
+*/

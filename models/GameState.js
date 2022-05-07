@@ -5,7 +5,8 @@ const GameStateSchema = new Schema({
     dateKey: {type: String, required: true, unique: true},
     allSouls: Object,
     allChatventures: Object,
-    allSecrets: Object
+    allSecrets: Object,
+    allWorlds: Object
 }, { minimize: false });
 
 module.exports = mongoose.model('GameState', GameStateSchema);
