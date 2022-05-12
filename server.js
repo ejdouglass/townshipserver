@@ -220,7 +220,7 @@ spitball material properties:
 METALS: hardness, flexibility, conductivity, workability, resistance, ductility, density
 ALCHEMY: potency, efficacy, solubility, toxicity
 
-and further mod by tier, just 'cuz :P
+... likely going to rejigger all this yet again :P... but for one last hurrah! no longer LEVEL equipment, but RANK (instrinsic quality)
 
 */
 
@@ -2562,6 +2562,7 @@ const structBlueprints = {
 
 };
 
+//!MHRinteract
 const structInteractions = {
     'town gate': {
         gate(entity, target) {
@@ -2583,34 +2584,171 @@ const structInteractions = {
         nexus() {
 
         }
-    }
+    },
+    'gather': {
+        refine(entity, target) {
+            // we'll need another menu here to make this fly
+            console.log(`${entity?.name} wishes to refine some materials.`);
+        }
+    },
+    'tradepost': {
+        shop(entity, target) {
+            console.log(`${entity?.name} wishes to shop.`);
+        }
+    },
+    'inn': {
+        recruit(entity, target) {
+            console.log(`${entity?.name} wishes to recruit someone to their team.`);
+        }
+    },
+    'default': {
+        default() {
+            return true;
+        }
+    },
+
 }
 
 
+
+/*
+
+-! nexus
+-! town gate
+-! (internal) tradehall - source of gathering/assigning external doots to get materials (+2 to start)
+    - also serves as basic 'processing' capacity, turning ore into metal and such... slow but steady
+-! (internal) build (1 slot to start, no mods)
+-! (internal) storage (starts as stockpile, can get fancier later)
+-! (internal) inn (with built-in tavern for tavern shenanigans) ... rest up, get travelers, recruit npc parties, make some grub
+-! (internal) tradepost... starter struct that can upgrade as local shop as well as trade generator (based on wares, and later on a demand system)
+    - first shop, assumed level 10 competency at crafting starter-tier gear      
+-! (internal) class trainer structs: sanctuary, tower, den, arena/gymnasium
+-! (internal) pit - +1 mineral, + 1 stone by default... can specialize into town mine/dungeon, but beware going too deep!
+
+
+
+... NEW MATERIALS
+wood, ore, stone, game, water, vegetation (more broad than 'herbs,' but inclusive of)
+- gemstones can be a relatively rare side-effect of getting metal and stone for now
+
+'refining facilities' can turn stuff like game into leather, but by default we'll assume game, freshwater, and food are consumed for sustenance?
+    .. no mechanism for that yet, but that's fine :P
+    .. alternatively, they can be 'spent' for specific purposes? 
+anyway, we'll focus first on the building materials I suppose
+... might come back to population concepts, hm... no longer oops all npcs
+
+now then
+wood, ore, stone, game, water, vegetation
+resourceAmps, homeIncome... that's what the township specializes in. Want to boost specific tiles? Build on THEM, buddy!
+ah! and refining. ore -> whatever, game -> meat, bone, leather
+    - how much of this should be automatic versus 'hey start making this happen for us plz'?
+    - eh, maybe advanced versions allow automation, but standard versions require you to pop in and be like 'hey manage us dummies'
+
+when requesting to manage a township, we can grab just that itty-bitty slice of map, or throw the whole map at the client and let them sort it out :P
+    - if we already have the correct map from when we visit the township initially, we're good to go?
+    - so maybe whenever we visit any township with locationData, we throw the mapData in there for jolly good measure (if applicable)
+
+
+CHANGEUP
+homeIncome is now split into woodIncome, oreIncome, etc.
+    - so we can loop through and all townstats per struct to our total
+same for resourceAmps
+    - i.e. waterAmp, woodAmp, etc.
+
+
+PitStruct, TradePostStruct, InnStruct, StorageStruct, BuildStruct, GatherStruct, TownGateStruct, NexusStruct, WellStruct
+known townstats: {
+    woodIncome, oreIncome, stoneIncome, gameIncome, waterIncome, vegIncome,
+    woodAmp, oreAmp, stoneAmp, gameAmp, waterAmp, vegAmp,
+    gatherSlots, buildSlots, traffic, commerce
+}
+... so we need to set the township "starter stats" upon init, and then loop through all the buildings and add their townstat keys (all numbers!) to our starter numbers
+
+traffic above for determining how generally inviting the township is for comers and goers... a high traffic count can help out with attempts to 
+    recruit/do taverny things, though you need a tavern-y meeting place for that; commerce is assisted
+commerce is... a currently poorly-defined reflection of the concept that folks come in and spend coin at the township :P
+
+*/
+
+
+//! MHRstructclass
 
 class Struct {
-    constructor(blueprint) {
-        this.id = generateRandomID('struct');
-        this.entityType = 'struct';
-        this.name = blueprint.name;
-        this.type = blueprint.type;
-        this.nickname = blueprint.nickname;
-        this.description = blueprint.description;
-        this.innerDescription = blueprint.innerDescription;
+    constructor(structObj) {
+        this.type = null;
+        this.displayName = null;
+        this.id = null;
+        this.soulRef = null;
+        this.nickname = ``;
+        this.description = ``;
+        this.level = 0;
+        this.hp = 10;
+        this.interactions = null;
+        this.icon = {type: 'x'};
+        this.mapImage = null;
+        this.xyz = [1,1,1];
+        this.weight = 0;
+        this.buildLimit = null;
+        this.npcSlots = null;
+        this.construction = {grease: 1};
+        this.inventory = null;
+    }
+
+    init(place) {
+        // take in a township or something... a referenced object that has structs or potential structs
+        // NOTE: we should have place.type === 'tile' so we can update a world tile, if it's something that can be built 'outside'
+        // assuming for now that place is a township in allSouls somewhere
+        // console.log(`Well hi I'm a new struct about to be born unto the world! The old place: `, place);
+        if (place.structs == null) place.structs = {};
+        let newID = generateRandomID('struct');
+        this.id = newID;
+        this.soulRef = place.soulRef; // works fine for townships, at any rate :P
+        place.structs[newID] = this;
+        // whoops! forgot we need that soulRef for a lot of struct interactions
+        // do townships have their own soulref? one sec...
+        // console.log(`Behold the NEW place! `, place);
+        return this;
+    }
+
+    beginBuilding(source, target) {
+        // for when we actually plan to build the thing
+        // source is where the materials and labor are coming from; target is assumed same as source unless explicitly defined
+        // level 0 == unbuilt
+    }
+
+    beginUpgrading(source, target) {
+        // null for now
+    }
+
+}
+
+class WellStruct extends Struct {
+    constructor(structObj) {
+        super(structObj);
+        this.type = 'well';
+        this.displayName = 'Town Well';
+        this.id = null;
+        this.soulRef = null;
+        this.nickname = `A Town Well`;
+        this.description = `A simple collection of gray and white bricks arranged around an earthbound man-made wellspring, a simple bucket-and-pulley attached for fetching water.`;
         this.level = 1;
-        this.exp = 0;
-        this.interactions = blueprint.interactions;
-        this.icon = blueprint.icon;
-        this.gps = blueprint.gps;
-        this.dimensions = blueprint.dimensions;
-        this.construction = blueprint.construction;
-        this.boosts = blueprint.boosts;
-        this.inventory = blueprint.inventory;
+        this.hp = 1000;
+        this.interactions = null;
+        this.icon = {type: 'x'};
+        this.mapImage = null;
+        this.xyz = [1,1,1];
+        this.weight = 10;
+        this.townstats = {waterIncome: 2};
+        this.buildLimit = null;
+        this.npcSlots = null;
+        this.construction = {stone: 5, wood: 3, grease: 240};
+        this.inventory = null;
     }
 }
 
-class NexusStruct {
-    constructor() {
+class NexusStruct extends Struct {
+    constructor(structObj) {
+        super(structObj);
         this.type = 'nexus';
         this.displayName = 'Nexus';
         this.id = null;
@@ -2625,91 +2763,17 @@ class NexusStruct {
         this.dimensions = {x: 1, y: 1, z: 1};
         this.mapSpot = null;
         this.weight = 0;
-        this.currentWorldID = null;
-        this.currentGPS = null;
         this.buildLimit = 1;
-        this.operation = {min: 0, current: 0, cap: 0, slots: 0};
         this.npcSlots = null;
-        this.population = 0;
         this.construction = {opalite: 1000};
         this.inventory = null;
     }
 
-    init(soul, id) {
-        this.soulRef = soul.name;
-        if (id != null) this.id = id
-            else this.id = generateRandomID('nex');
-        this.nickname = `${soul.township.nickname}'s Nexus`;
-        allSouls[this.soulRef].township.structs[this.id] = this;
-        return this;
-    }
-
-    place(coords) {
-        // this.mapSpot = cross-ref as to where this building lives in the map zone
-        // then should peek at allSouls[this.soulRef].township.map, as well
-        // this is a for-later concept at this stage
-        return this;
-    }
-
-    upgradeCheck(targetLevel) {
-        // this: just return the info on what is needed to upgrade to level X
-        if (targetLevel == null) targetLevel = this.level + 1;
-        switch (targetLevel) {
-            case 2: {
-                break;
-            }
-            case 3: {
-                break;
-            }
-            case 4: {
-                break;
-            }
-            case 5: {
-                break;
-            }
-            case 6: {
-                console.log(`Currently IMPOSHIBIBBLE`);
-                break;
-            }
-            default: break;
-        }
-        // return this; // eh maybe not a chainable method; just return TRUE or FALSE, 
-    }
-
-    upgrade() {
-        // this: do a final check we have the requirements met, and if so, begin construction!
-        // reqs to check: stockpile inventory, weight capacity
-    }
-
-    sidegradeList() {}
-
-    sidegrade() {}
-
-    /*
-    
-    'nexus': {
-        type: 'nexus', nickname: `The Nexus Crystal`, 
-        description: 'A blossom of milky blue-white crystal, standing twice the height of a tall man, that acts as the heart of the township.',
-        innerDescription: 'How did you even get IN here? Crystals! Crystals everywhere!',
-        level: 1, hp: 3000, interactions: {nexus: 'nexus'}, icon: {type: 'x'}, gps: {}, dimensions: {x: 1, y: 1, z: 1}, 
-        weight: 0, buildLimit: 1, operation: {min: 0, current: 0, cap: 0, slots: 0}, npcSlots: [], population: 0,
-        construction: {main: {opalite: 100}},
-        boosts: {township: {}, player: {}},
-        inventory: {construction: {}},
-        upgradeData: {
-            2: {reqLevel: 1, reqMaterials: {opalite: 50}, buildTime: 3, newBuildData: {
-                description: `It's a Level 2 Nexus. Fancy! I bet it does something neat. Besides glow more brightly than before, which it certainly does.`
-            }},
-            3: {},
-            4: {},
-            5: {},
-        },    
-    
-    */
 }
 
-class TownGateStruct {
-    constructor() {
+class TownGateStruct extends Struct {
+    constructor(structObj) {
+        super(structObj);
         this.type = 'town gate';
         this.displayName = 'Town Gate'
         this.id = null;
@@ -2724,69 +2788,180 @@ class TownGateStruct {
         this.dimensions = {x: 1, y: 1, z: 1};
         this.mapSpot = null;
         this.weight = 0;
-        this.currentWorldID = null;
-        this.currentGPS = null;
         this.buildLimit = 1;
-        this.operation = {min: 0, current: 0, cap: 0, slots: 0};
         this.npcSlots = null;
-        this.population = 0;
-        this.construction = {wood: 500};
+        this.construction = {wood: 10};
         this.inventory = null;
-
     }
+}
 
-    init(soul, id) {
-        this.soulRef = soul.name;
-        if (id != null) this.id = id;
-        this.nickname = `${soul.township.nickname}'s Town Gate`;
-        if (this.id == null) this.id = generateRandomID('towngate');
-        allSouls[this.soulRef].township.structs[this.id] = this;
-        return this;
+class GatherStruct extends Struct {
+    constructor(structObj) {
+        super(structObj);
+        this.type = 'gather';
+        this.displayName = 'Tradesman Tent';
+        this.id = null;
+        this.soulRef = null;
+        this.nickname = `A Tradesman Tent`;
+        this.description = `A relatively large open-design tent, the main purpose is to serve as a storehouse for the various tools of mining, digging, and foraging. Several makeshift workstations sit haphazardly about, suitable for simple raw material refinement.`;
+        this.level = 1;
+        this.hp = 1200;
+        this.interactions = {default: 'refine', refine: 'refine'};
+        this.townstats = {gatherSlots: 2};
+        this.icon = {type: 'x'};
+        this.mapImage = null;
+        this.xyz = [1,1,1];
+        this.weight = 40;
+        this.refineActions = [
+            {name: `Basic Butchery`, from: {water: 1, game: 2}, to: {meat: 1, leather: 1, bone: 1}},
+            {name: `Simple Smelting`, from: {water: 1, ore: 2}, to: {metal: 1}},
+            {name: `Wanton Woodcutting`, from: {wood: 2}, to: {lumber: 1}},
+        ]; // not quiiiite where I want it to be, but a solid enough start
+        this.buildLimit = null;
+        this.npcSlots = null;
+        this.construction = {leather: 5, wood: 3, grease: 300};
+        this.inventory = null;
     }
-    
+}
 
-    place(coords) {
-        // this.mapSpot = cross-ref as to where this building lives in the map zone
-        // then should peek at allSouls[this.soulRef].township.map, as well
-        // this is a for-later concept at this stage
-        return this;
+class BuildStruct extends Struct {
+    constructor(structObj) {
+        super(structObj);
+        this.type = 'build';
+        this.displayName = 'Builder Tent';
+        this.id = null;
+        this.soulRef = null;
+        this.nickname = `A Builders' Tent`;
+        this.description = `Little more than several felled trees propping up a covering sheet of light leather, providing simple cover and a designated storage space for all manner of simplistic building tools.`;
+        this.level = 1;
+        this.hp = 800;
+        this.interactions = null;
+        this.townstats = {buildSlots: 1};
+        this.icon = {type: 'x'};
+        this.mapImage = null;
+        this.xyz = [1,1,1];
+        this.weight = 25;
+        this.buildLimit = null;
+        this.npcSlots = null;
+        this.construction = {leather: 3, wood: 5, grease: 300};
+        this.inventory = null;
     }
+}
 
-    upgradeCheck(targetLevel) {
-        // this: just return the info on what is needed to upgrade to level X
-        if (targetLevel == null) targetLevel = this.level + 1;
-        switch (targetLevel) {
-            case 2: {
-                break;
-            }
-            case 3: {
-                break;
-            }
-            case 4: {
-                break;
-            }
-            case 5: {
-                break;
-            }
-            case 6: {
-                console.log(`Currently IMPOSHIBIBBLE`);
-                break;
-            }
-            default: break;
-        }
-        // return this; // eh maybe not a chainable method; just return TRUE or FALSE, 
+class StorageStruct extends Struct {
+    constructor(structObj) {
+        super(structObj);
+        this.type = 'storage';
+        this.displayName = 'Storage Tent';
+        this.id = null;
+        this.soulRef = null;
+        this.nickname = `A Storage Tent`;
+        this.description = `Just a slight step up from leaving the spoils of the township's labours lying in the hole in the ground, instead we have a massive tent of raw logs and rugged leather, tightly enclosed, with various pits, boxes, and crannies dedicated to the storage of all manner of raw materials.`;
+        this.level = 1;
+        this.hp = 1200;
+        this.interactions = null;
+        this.townstats = {storage: 200};
+        this.icon = {type: 'x'};
+        this.mapImage = null;
+        this.xyz = [2,1,1];
+        this.weight = 15;
+        this.buildLimit = null;
+        this.npcSlots = null;
+        this.construction = {leather: 5, wood: 5, grease: 600};
+        this.inventory = null;
     }
+}
 
-    upgrade() {
-        // this: do a final check we have the requirements met, and if so, begin construction!
-        // reqs to check: stockpile inventory, weight capacity
+class InnStruct extends Struct {
+    constructor(structObj) {
+        super(structObj);
+        this.type = 'inn';
+        this.displayName = 'Simple Inn';
+        this.id = null;
+        this.soulRef = null;
+        this.nickname = `A Simple Inn`;
+        this.description = `A relatively bare but respectable building of simple constructed wood and stone, adorned with metal fittings, suitable for hosting travelers. A smallish tavern is set up just inside the entrance, just cozy and stocked enough to feature an ever-present collection of comers and goers.`;
+        this.level = 1;
+        this.hp = 2000;
+        this.interactions = {default: 'recruit', recruit: 'recruit'};
+        this.townstats = {traffic: 1, commerce: 1};
+        // I was thinking of having an 'operating cost mode' where it consumes water and meat to boost traffic? not sure how to implement yet
+        this.icon = {type: 'x'};
+        this.mapImage = null;
+        this.xyz = [2,1,1];
+        this.weight = 20;
+        this.buildLimit = null;
+        this.npcSlots = null;
+        this.construction = {chalkstone: 20, mattle: 5, softwood: 20, grease: 720};
+        this.inventory = null;
     }
+}
 
-    sidegradeList() {}
+class TradePostStruct extends Struct {
+    constructor(structObj) {
+        super(structObj);
+        this.type = 'tradepost';
+        this.displayName = 'Small Tradepost';
+        this.id = null;
+        this.soulRef = null;
+        this.nickname = `A Trading Post`;
+        this.description = `A sturdy, small, square building of chalk cobblestone framed in wood. Serving as sort of a rustic general store and provisionary shop, it features a simple stock based on the local trades of the township.`;
+        this.level = 1;
+        this.hp = 1500;
+        this.interactions = {default: 'shop'};
+        this.townstats = {commerce: 2};
+        this.icon = {type: 'x'};
+        this.mapImage = null;
+        this.xyz = [1,1,1];
+        this.weight = 20;
+        this.buildLimit = null;
+        this.npcSlots = null;
+        this.construction = {chalkstone: 10, softwood: 10, grease: 600};
+        this.inventory = null;
+    }
+}
 
-    sidegrade() {}
+class PitStruct extends Struct {
+    constructor(structObj) {
+        super(structObj);
+        this.type = 'pit';
+        this.displayName = 'The Pit';
+        this.id = null;
+        this.soulRef = null;
+        this.nickname = `The Pit`;
+        this.description = `Every township has one, and this is the most rudimentary version: a massive hole, dug downward at a slight angle, with the goal of being able to reach the choicest meats and fruits of the earth from the safety of the township.`;
+        this.level = 1;
+        this.hp = 3000;
+        this.interactions = null;
+        this.townstats = {oreIncome: 1, stoneIncome: 1};
+        this.icon = {type: 'x'};
+        this.mapImage = null;
+        this.xyz = [2,1,1];
+        this.weight = 15;
+        this.buildLimit = 1;
+        this.npcSlots = null;
+        this.construction = {grease: 6000};
+        this.inventory = null;
+    }
+}
+
+class FighterStruct extends Struct {
 
 }
+
+class RogueStruct extends Struct {
+
+}
+
+class SorcererStruct extends Struct {
+
+}
+
+class SympathStruct extends Struct {
+    
+}
+
+
 
 // for now, HAX for Zenithica
 // note to self: make sure to initialize ALL variables, such as history, when doing actual Zenithica setup
@@ -3284,8 +3459,7 @@ function saveGameState() {
         allWorlds: allWorlds
     };
 
-    console.log(`Attempting to save this gameState: `, gameState);
-    console.log(`Note that allWorlds length with even one world is already ${gameState.allWorlds.length}. Is that a bit much?`)
+    // console.log(`Attempting to save this gameState: `, gameState);
 
     const filter = { dateKey: todaysDateKey };
     const update = { $set: gameState };
@@ -3424,7 +3598,7 @@ io.on('connection', (socket) => {
     socket.on('view_township_management', reqObj => {
         const { soul } = reqObj;
         const township = allSouls[soul].township;
-        // MHRmanage
+        // !MHRmanage
         let locationData = {
             name: soul,
             nickname: township.nickname,
@@ -3433,10 +3607,27 @@ io.on('connection', (socket) => {
             structs: township.structs
         };
 
+        // OH! we definitely want constructionCoords, build info, etc. as well
+        let managementData = {
+            wealth: township.wealth,
+            weight: township.weight,
+            townstats: {...township.townstats},
+            mapObj: null,
+            wps: null
+        };
+        if (township.worldID != null) {
+            managementData.mapObj = allWorlds[township.worldID];
+            managementData.wps = township.wps;
+        }
+
+        socket.emit('township_management_data', managementData);
+
         function createLocationData(soulName) {
             // since we make locationData SO many times in our code right now, let's function it up!
             // all we really need to make locationData is the soulName, whereupon we can derive the rest with access to global vars' info
             // let's add the mapData and management data... whiiiiich we still need to create, huh? ok, divergence! be back in a little bit...
+            // ... well, that was a couple days ago. What were we up to, again? :P
+            // at least we now have all our necessary stats. gonna emit back to player viewable info above before worrying about locationData (they should already have it there)
             const township = allSouls[soulName].township;
             return {
                 name: soulName,
@@ -3464,17 +3655,10 @@ io.on('connection', (socket) => {
     socket.on('interact_with_struct', interactionObj => {
         if (thisPlayer?.name == null) return;
         const { structToInteract, interaction } = interactionObj; 
-        // console.log(`It appears ${thisPlayer.name} wants to interact with ${structToInteract.nickname} by doing a/n ${interaction}?`);
-
-        // console.log(`STRUCT INTERACTION REQUEST. structToInteract is `, structToInteract);
-        // structBlueprints[structToInteract.type][interaction](thisPlayer, thisPlayer.township.structs[structToInteract.type]);
-        // !MHRgate
-
-        // so! turns out we can't save functions in JSON, and we're doing... a lot of JSON shenanigans.
-        // rats. so all functions are going to have to live in the server's code. best we can do is reference them here.
 
         // ok, this works... we can run with it as long as we bake in all structInteractions properly
-        structInteractions[structToInteract.type][interaction](thisPlayer, structToInteract);
+        // note that doing stuff like 'well' just kind of breaks it because we don't handle that... so, default-default it is!
+        if (structToInteract.interactions != null) structInteractions[structToInteract.type][interaction](thisPlayer, structToInteract);
 
         // what should this socket return? anything in particular? let's brainstorm...
         /*
@@ -3864,15 +4048,35 @@ io.on('connection', (socket) => {
 
 
 
+        PitStruct, TradePostStruct, InnStruct, StorageStruct, BuildStruct, GatherStruct, TownGateStruct, NexusStruct, WellStruct
+        known townstats: {
+            woodIncome, oreIncome, stoneIncome, gameIncome, waterIncome, vegIncome,
+            woodAmp, oreAmp, stoneAmp, gameAmp, waterAmp, vegAmp,
+            gatherSlots, buildSlots, traffic, commerce
+        }
+        ... so we need to set the township "starter stats" upon init, and then loop through all the buildings and add their townstat keys (all numbers!) to our starter numbers        
+
+
         */
         let brandNewTownship = {
             nickname: `${brandNewPlayer.name}'s Township`,
             soulRef: `${brandNewPlayer.name}`,
             worldID: null,
-            wps: [0,0],
-            gatheringCapacity: 2,
+            wps: [0,0], // also a gatheringCoord, technically!
             gatheringCoords: [],
-            constructionCapacity: 1,
+            weight: 0,
+            wealth: 0, // hm... 
+            inventory: {
+                wood: 15, stone: 15, ore: 15, game: 0, water: 15, veg: 15,
+                hardwood: 0, 
+                timber: 0, chalkstone: 0, iron: 0, 
+                leather: 10, bone: 10, meat: 10, 
+            },
+            townstats: {
+                woodIncome: 0, oreIncome: 0, stoneIncome: 0, gameIncome: 0, waterIncome: 0, vegIncome: 0,
+                woodAmp: 1, oreAmp: 1, stoneAmp: 1, gameAmp: 1, waterAmp: 1, vegAmp: 1, 
+                gatherSlots: 0, buildSlots: 0, traffic: 0, commerce: 0, storage: 0
+            },
             constructionProjects: {}, // within township walls or within management radius
             icon: {},
             aesthetic: {}, // for changing look of the chatroom/township visit around, ultimately
@@ -3883,12 +4087,13 @@ io.on('connection', (socket) => {
                 description: `You are in a small township governed by ${brandNewPlayer.name}. It rests in the center of a large savanna, a soothing expanse of gently rolling grasslands extending away from the town walls, the occasional majestic tree standing proudly in the distance.`,
                 map: []
             },
-            // population: 0, // will probably go ahead and nix this, no use in current setup
+            // population: 0, // maaay bring this back, as it turns out
             events: {},
             history: [],
             lastTick: null
         };
         brandNewPlayer.township = {...brandNewTownship};
+        // REMINDER: we won't 'build' until player is in allSouls properly
         
         /*
         
@@ -3928,16 +4133,56 @@ io.on('connection', (socket) => {
             -! (internal) tradehall - source of gathering/assigning external doots to get materials (+2 to start)
                 - also serves as basic 'processing' capacity, turning ore into metal and such... slow but steady
             -! (internal) buildhall (1 slot to start, no mods)
-            -! (internal) well: +1 water, upgrade for MOAR WATER; can potentially irrigate from rivers/freshwater to also add +1 water to local tiles
+            -! (internal) well - +2 water, upgrade for MOAR WATER; can potentially irrigate from rivers/freshwater to also add +1 water to local tiles
             -! (internal) storage (starts as stockpile, can get fancier later)
-            -! (internal) inn (with built-in tavern for tavern shenanigans)
+            -! (internal) inn (with built-in tavern for tavern shenanigans) ... rest up, get travelers, recruit npc parties, make some grub
             -! (internal) tradepost... starter struct that can upgrade as local shop as well as trade generator (based on wares, and later on a demand system)
                 - first shop, assumed level 10 competency at crafting starter-tier gear      
             -! (internal) class trainer structs: sanctuary, tower, den, arena/gymnasium
+            -! (internal) pit - +1 mineral, + 1 stone by default... can specialize into town mine/dungeon, but beware going too deep!
+            ... I think we landed on each struct having its own class, accepting a new ClassStructGuy(initvalueobject) OR adding .newSoul(soul) init type
+            homeTileBoost: {wood, mineral}, homeTileAmp: {...}
+            township also needs to 'know' its own stats, so... township stats! or townstats!
+            homeboosts/amps are special in that they're tile agnostic, yet specific tile masteries ALSO apply... spec up for great results!
+            ... and then maybe some rarity chasers
+            ... ooh and a struct to chase rares at the expense of the commons
+            DON'T FORGET THE DRAGONS, MAN
+            still, now that we've settled it, we can get it going
+            ... upon townvisit, it'll do a quickie calculation, rather than automatically bothering our poor little server automatically
+                - ideally we'd let the client handle this, but we'd have to safeguard against tampering by locking the process with a backend token of some sort?
+                - ooh, that's a neat idea, we'll try that
+            ... and then we can go to Zenithica and unload our extra supplies for rares, special currencies, etc.
+            ... woo!
+            ... world level helps guide 'drop rates' on materials, which is divided into tiles
+                - OH OR SUPERTILES... black iron suddenly becomes possible in 'deep desert'? I like it!
+            ... anyway, how should we 'roll' for common, uncommon, rare, etc.? 
+                - world level is definitely a core part of it, bumping rates up (sometimes from effectively zero)
+                - essentially we need to make a list of white/green/blue/purple/orange stuff? :P
+                - or maybe less staggered, just spectrum of... hm, actually, I like different pools
+                - so common, uncommon, rare for now... leave the hyper-rares for the future UFO commander
+            Refactoring! Going even MORE abstract - all construction/township-level materials are abstracted away from their RL counterparts
+                - specific materials CAN be found and stored, as rare rolls or during specific adventuring
+                - OR, this represents 'raw material' gathered, and during special refining can give us specific types of material?
+            COMMONS: 
+                - softwood, hardwood
+                - shinemetal, mattemetal
+                - glittershard, palecryst
+                - bitterleaf, greenroot
+                - chalkstone, grayrock
+                - pelt, hide
+            UNCOMMONS:
+                - burlwood, heartwood
+                - 
+                - runeshard
+                - 
+            RARE:
+                - silverwood, ironwood
+
+
            
             - (internal) town hall - adds events, enhances trade, enables special options, increases weight potential
+            - (internal) trader guild - traders go here! manage stock overflow sales? get some unique goods, amplify town income
             - (internal) specialized crafters: blacksmith, clothier, bowyer, leatherworker, artificer, etc.
-            - (internal) mine/dungeon: grab some metal and stone from the local earth, but beware of digging too greedily and deep!
             - (internal) guardhouse (reduces encounter level nearby)
             - (internal) refinement buildings: forge, lumberyard, etc. to turn raw ore/wood into ingots/lumber, animals into meat/hide/bone, etc.
             - (internal)specialization buildings: more specific resources from some selection of particular tiles
@@ -3945,6 +4190,8 @@ io.on('connection', (socket) => {
                 - jwt smb vpu nda clf ghr M
 
             - ok, so what's our projected 'income,' how often, and what's the build requirement projected to be (base, construction upgrades can help, plus friends)
+            so a fairly bountiful tile will give 6-8 total resources an hour by default; some of the worst only give 2, but that's not a huge issue in starter areas
+
 
             - and FLUX
 
@@ -3980,12 +4227,24 @@ io.on('connection', (socket) => {
                 - C is 8 + 0.8
                 - D would be 4 + 0.4
                 - F... is nothin' :P
-                - so by default, maybe an A and C stat on gear, with mods and/or mats being able to kick 'em up a rank
+                - so by default, maybe a B (12) and C (8) stat on gear, with mods and/or mats being able to kick 'em up in rank
+                NOTE: scaling is half equipment level, half guiding stat(s) of gear (so, all gear scales, but mostly off its own level, and a bit off user stats)
+                ... great, sounds workable, done
+                ... ooh, since it's a simple 5-point scale (base = points * 4, mod points / 2.5... or flat / 1.25 & stat / 1.25)
+                    - actually, flat boost is POINT * 4; level scaling is POINT / 1.25; stat scaling is POINT / 1.25
+                    - while we're planning a 3 and a 2 (B and a C), we can go up and down by partials and the math will still work fine, as math is wont to do
 
 
             MATERIALS (redux, reduxed)
             - should probably keep it relatively simple
             - basic typing and level; what kind of material (metal, etc.), level it supports, etc.
+            - I can already foresee some issues with getting too specific with materials, but putting that aside for a sec...
+            - families? all iron is good in one way, all copper is good in another?
+            - something like iron: level 20, atk: 1, def: 1, mag: 0.8, res: 0.8, dft: 1; sword with 3 atk is 3 * 1 = 3 still, but a rod would be 3 * 0.8 = 2.4
+                - iron rods, not great for magic! :P
+            - one downfall I see is with only atk/def/mag/spr/dft, having every weapon doing 2 stats might stretch a bit
+            - should we add hp/mp? hm maybe yes
+            - but the scaling would be a bit different; +20 atk is one thing, but not convinced that scaling would work with hp/mp at all
 
             IN THE BEGINNING,
             - just being able to get basic materials with some rare stuff in our basic maps would be fantastic
@@ -4026,6 +4285,7 @@ io.on('connection', (socket) => {
         brandNewPlayer.stats.mag = Math.floor((brandNewPlayer.stats.willpower + brandNewPlayer.stats.intelligence) / 2);  
         brandNewPlayer.stats.spr = Math.floor((brandNewPlayer.stats.wisdom + brandNewPlayer.stats.intelligence) / 2);
         brandNewPlayer.stats.dft = Math.floor((brandNewPlayer.stats.agility + brandNewPlayer.stats.intelligence) / 2);
+        brandNewPlayer.stats.cha = 99;
         brandNewPlayer.stats.hp = brandNewPlayer.stats.hpmax;
         brandNewPlayer.stats.mp = brandNewPlayer.stats.mpmax; 
 
@@ -4053,7 +4313,7 @@ io.on('connection', (socket) => {
 
         // oh right, MUNNY... we'll go with just a number and 'carte blanche' currency for now
         // we'll start with 500 just for testing/spending purposes
-        brandNewPlayer.wallet = 500;
+        brandNewPlayer.wallet = 50;
         
         // HERE: init flux? probably an object with {current: 0, max: 99, lastTick: Date()}, and some mechanism of calculating restoration (every 5 min seems fine :P)
         brandNewPlayer.flux = {current: 30, max: 30, lastTick: new Date()};
@@ -4115,11 +4375,18 @@ io.on('connection', (socket) => {
         socket.join(brandNewPlayer.name);
         allSouls[brandNewPlayer.name] = JSON.parse(JSON.stringify(brandNewPlayer));
         
-        let newNexusID = generateRandomID('nexus');
-        let newGateID = generateRandomID('towngate');
+        // let newNexusID = generateRandomID('nexus');
+        // let newGateID = generateRandomID('towngate');
         allSouls[brandNewPlayer.name].structs = {};
-        allSouls[brandNewPlayer.name].structs[newNexusID] = new NexusStruct().init(brandNewPlayer, newNexusID);
-        allSouls[brandNewPlayer.name].structs[newGateID] = new TownGateStruct().init(brandNewPlayer, newGateID);
+        // PitStruct, TradePostStruct, InnStruct, StorageStruct, BuildStruct, GatherStruct, TownGateStruct, NexusStruct, WellStruct
+        let structsToInit = [new NexusStruct(), new TownGateStruct(), new WellStruct(), new GatherStruct(), new BuildStruct(), new StorageStruct(), new InnStruct(), new TradePostStruct(), new PitStruct()];
+        //!MHRbrand
+        structsToInit.forEach(classyStruct => {
+            // let's see if this does the trick!
+            classyStruct.init(allSouls[brandNewPlayer.name].township);
+        });
+
+        // HERE: init their class struct! ... and their tradepost stuff?
 
 
         // actually, the PARTY ref will be stale due to the parsing... so go back and 'refresh' intended object references, just in case
@@ -4135,7 +4402,6 @@ io.on('connection', (socket) => {
         let newMap = createWorldMap({size: 'small', level: 5, continents: 1, rangeMax: true, creator: brandNewPlayer.name});
         
         let newSpawnPoint = newMap.savannaTileGPS;
-        // trying x, y to hope for the best here :P
         newMap.map[newSpawnPoint[0]][newSpawnPoint[1]] = 'v00T'; // not wholly safe, so we should do a substring replace in case those middle values end up being different
 
         // since the world is new, we don't have to worry about checking if something's 'in the way' when we plunk down here... yet
@@ -4151,6 +4417,8 @@ io.on('connection', (socket) => {
 
         thisPlayer.township.worldID = newMap.id;
         thisPlayer.township.wps = [newSpawnPoint[0], newSpawnPoint[1]];
+
+        calcTownship(allSouls[brandNewPlayer.name].township);
 
         // currently leaning towards having the playstack set up back here so we have 'positional information' about the player
         // let's try to set this up so we get relevant location data for their own baby township
@@ -4220,6 +4488,7 @@ io.on('connection', (socket) => {
         console.log(`How lovely! Someone wants to visit `, name);
         thisPlayer.playStack.gps = name;
     
+        // MAP IT UP
         let locationData = {
             name: name,
             nickname: allSouls[name].township.nickname,
@@ -4227,7 +4496,7 @@ io.on('connection', (socket) => {
             history: allSouls[name].township.history.slice(-150),
             structs: allSouls[name].township.structs
         };
-        console.log(`The location data for ${name} is thus: `, locationData);
+        // console.log(`The location data for ${name} is thus: `, locationData);
         // yup, all of the struct functions just... aren't there anymore, for some totally unknown reason?
         // console.log(`HI! ${thisPlayer.name} is attempting to visit a new township. HERE IS ALL THAT TOWNSHIP DATA: `, allSouls[thisPlayer.playStack.gps].township)
         socket.join(name);
@@ -4415,6 +4684,7 @@ GameState.findOne({ dateKey: todaysDateKey })
                                 Zenithica: {
                                     name: 'Zenithica',
                                     township: {
+                                        soulRef: 'Zenithica',
                                         townMap: {
                                             description: `Two wide perpindicular cobblestone streets cross between tightly huddled, stern square buildings of dark mottled stone. These streets stop abruptly a few blocks in any direction, blocked by immensely tall walls that seem to hold up the very sky itself. To the north, a glance below the always-midday sun, a single crystalline spire is just visible above the wall.`,
                                         },
@@ -4469,14 +4739,16 @@ function loadGame(gameObject) {
     allChatventures = gameObject.allChatventures;
     allSecrets = gameObject.allSecrets;
     allWorlds = gameObject.allWorlds;
-    console.log(`Hi! Loading game object: `, gameObject);
+    // console.log(`Hi! Loading game object: `, gameObject);
 
     if (allSouls['Zenithica'].structs == null) {
         console.log(`Oh, dear. Zenithica is bare. Can't let that stand. At least have a Nexus, Z!`);
         allSouls.Zenithica.structs = {};
         // line below is what causes SUPER DOOM.
-        let newNexusID = generateRandomID('nex');
-        allSouls['Zenithica'].structs[newNexusID] = new NexusStruct().init(allSouls['Zenithica'], newNexusID);
+        // let newNexusID = generateRandomID('nex');
+        // allSouls['Zenithica'].structs[newNexusID] = new NexusStruct().init(allSouls['Zenithica'], newNexusID);
+        let shinyNewNexus = new NexusStruct().init(allSouls.Zenithica.township);
+        // let shinyNewNexus = new NexusStruct();
     }
 
     // ooh we should add ouch and any other 'universal' functions to all our players
@@ -5273,13 +5545,146 @@ function weightChoice(...choices) {
 
 /*
 
+        known townstats: {
+            woodIncome, oreIncome, stoneIncome, gameIncome, waterIncome, vegIncome,
+            woodAmp, oreAmp, stoneAmp, gameAmp, waterAmp, vegAmp,
+            gatherSlots, buildSlots, traffic, commerce
+        }
+        ... so we need to set the township "starter stats" upon init, and then loop through all the buildings and add their townstat keys (all numbers!) to our starter numbers        
+
+
+        
+        let brandNewTownship = {
+            nickname: `${brandNewPlayer.name}'s Township`,
+            soulRef: `${brandNewPlayer.name}`,
+            worldID: null,
+            wps: [0,0], // also a gatheringCoord, technically!
+            gatheringCoords: [],
+            townstats: {
+                woodIncome: 0, oreIncome: 0, stoneIncome: 0, gameIncome: 0, waterIncome: 0, vegIncome: 0,
+                woodAmp: 1, oreAmp: 1, stoneAmp: 1, gameAmp: 1, waterAmp: 1, vegAmp: 1, 
+                gatherSlots: 0, buildSlots: 0, traffic: 0, commerce: 0
+            },
+            constructionProjects: {}, // within township walls or within management radius
+            icon: {},
+            aesthetic: {}, // for changing look of the chatroom/township visit around, ultimately
+            npcs: {}, // currently unsupported
+            vibe: {}, // currently wildly ignored; may come back later
+            structs: {},
+            townMap: {
+                description: `You are in a small township governed by ${brandNewPlayer.name}. It rests in the center of a large savanna, a soothing expanse of gently rolling grasslands extending away from the town walls, the occasional majestic tree standing proudly in the distance.`,
+                map: []
+            },
+            // population: 0, 
+            events: {},
+            history: [],
+            lastTick: null
+        };
+
+*/
+
+
+function calcTownship(townshipRef) {
+    console.log(`Township's townstats BEFORE: `, townshipRef.townstats);
+
+    // resetti spaghetti
+    townshipRef.townstats = {
+        woodIncome: 0, oreIncome: 0, stoneIncome: 0, gameIncome: 0, waterIncome: 0, vegIncome: 0,
+        woodAmp: 1, oreAmp: 1, stoneAmp: 1, gameAmp: 1, waterAmp: 1, vegAmp: 1, 
+        gatherSlots: 0, buildSlots: 0, traffic: 0, commerce: 0, storage: 0
+    };
+
+    Object.keys(townshipRef.structs).forEach(structKey => {
+        townshipRef.weight += townshipRef.structs[structKey].weight;
+        if (townshipRef.structs[structKey].townstats != null) {
+            Object.keys(townshipRef.structs[structKey].townstats).forEach(townstatKey => {
+                townshipRef.townstats[townstatKey] += townshipRef.structs[structKey].townstats[townstatKey];
+            });
+        }
+
+    });
+
+    if (townshipRef.worldID != null) {
+        const refMap = allWorlds[townshipRef.worldID].map;
+        let homeTileIncome = calcTileIncome(refMap[townshipRef.wps[0]][townshipRef.wps[1]]);
+        Object.keys(homeTileIncome).forEach(incomeKey => townshipRef.townstats[incomeKey] += homeTileIncome[incomeKey]);
+        if (townshipRef.gatheringCoords.length > 0) {
+            townshipRef.gatheringCoords.forEach(gatherCoord => {
+                let thisTileIncome = calcTileIncome(refMap[gatherCoord[0]][gatherCoord[1]]);
+                Object.keys(thisTileIncome).forEach(incomeKey => townshipRef.townstats[incomeKey] += thisTileIncome[incomeKey]);
+            })
+        }
+    }
+
+    console.log(`Township's townstats AFTER: `, townshipRef.townstats);
+    console.log(`Also, we should see that new WEIGHT starting out: ${townshipRef.weight}`);
+}
+
+function calcTileIncome(tileString) {
+    // given a tilestring, return an income stats object with woodIncome, oreIncome, etc. that calcTownship can use to calc incomes
+    // currently doing BLANK test cases - no struct considerations such as mine, caves, loded, wild, etc.
+
+    switch (tileString[0]) {
+        // jwt smb vpu nda clf ghr M
+
+        // j (jungle): 2 wood, 1 game, 1 herb
+        // w (wood): 2 wood, 1 game
+        // t (taiga): 2 wood, 1 game
+        case 'j': return {woodIncome: 2, gameIncome: 1, vegIncome: 1};
+        case 'w': return {woodIncome: 2, gameIncome: 1};
+        case 't': return {woodIncome: 2, gameIncome: 1};
+        
+        // s (swamp): 1 wood, 2 herb, 1 water
+        // m (marsh): 2 herb, 1 water
+        // b (bog): 2 herb, 1 water
+        case 's': return {woodIncome: 1, waterIncome: 1, vegIncome: 2};
+        case 'm': return {waterIncome: 1, vegIncome: 2};
+        case 'b': return {waterIncome: 1, vegIncome: 2};
+
+        // v (savanna): 1 wood, 1 game, 1 herb
+        // p (plain): 1 game, 1 herb
+        // u (tundra): 1 game            
+        case 'v': return {woodIncome: 1, gameIncome: 1, vegIncome: 1};
+        case 'p': return {gameIncome: 1, vegIncome: 1};
+        case 'u': return {gameIncome: 1};
+
+        // n (dunescape): 1 ore
+        // d (desert): 1 ore, 1 stone
+        // a (arctic): 1 ore            
+        case 'n': return {oreIncome: 1};
+        case 'd': return {oreIncome: 1, stoneIncome: 1};
+        case 'a': return {oreIncome: 1};
+        
+        // c (cruisewater): 2 water, 1 game
+        // l (lake): 2 water, 1 game
+        // f (frostwater): 1 water            
+        case 'c': return {waterIncome: 2, gameIncome: 1};
+        case 'l': return {waterIncome: 2, gameIncome: 1};
+        case 'f': return {waterIncome: 1};
+        
+        // g (greenhill): 1 ore, 1 stone, 1 herb
+        // h (hill): 1 ore, 1 stone
+        // r (frostmound): 1 ore, 1 stone
+        case 'g': return {oreIncome: 1, stoneIncome: 1, vegIncome: 1};
+        case 'h': return {oreIncome: 1, stoneIncome: 1};
+        case 'r': return {oreIncome: 1, stoneIncome: 1};
+
+        // M (mountain): 2 ore, 2 stone
+        case 'M': return {oreIncome: 2, stoneIncome: 2};
+    }
+}
+
+/*
+
     MOAR BRAINSTORMS kathooooom
     TO STORM:
-    [_] Township structs, costs, what they do, etc.
-
-    [_] Level stats (seed, class)
+    [_] Level stats (seed, class) - mostly defined at this point
     [_] Equipment stats
         - both of the above are so we can reasonably scale encounters
+    Regarding EQUIPMENT, rather than 'equipment level,' just a straight grade quality with perks based off that?
+        - so 0-5 on each derived stat, guidingStat or whatever we're calling it for main stat
+        - base value may be removed; 100% scaling based on guidingStat, so level/stat is main aspect
+        - simple equipment with a B/C (3/2) spread, plenty of room for improvement
 
     [_] Responsiveness - currently canvas maps are very... not great if screen is smaller than 550px
     
