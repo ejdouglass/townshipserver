@@ -34,6 +34,45 @@ const io = socketIo(server, {
 // or maybe quality being 'innate potential' and level being 'how much it's been leveled up'?
 // 'mass' is necessary for blueprints to determine how much raw material is required to construct it, though that's a bit of a later concern, as players cannot craft yet
 // either way, should probably add a 'materialReq' to ensure we don't end up with stuff that's TOO wacky, like a leather axe :P
+
+// hello, past and future selves! we've overhauled the equipment system since last we spoke and commented above.
+/*
+
+    quick synopsis:
+    - equipment no longer has flat stats or level
+    - equipment DOES have stat scaling based off of a main stat for that piece of gear
+    - so a sword might have mainStat: 'strength' and then have equipStats: {atk: 0.8, def: 0.5}... so 80% of strength is added to ATK, and 50% of strength is added to DEF
+    - just gotta decide on 'scaling'... like what's a good stat mod, a great one, an okay one, etc.?
+    - go by 0.25 maybe? 0.25, 0.50, 0.75, 1, 1.25? ... or just 1.25 total to begin with, divide however
+    - the "one B and one C" starter equipment logic => 0.75, 0.5
+    - remember there's plenty of equipment slots, so don't be worried about having under-represented stats if the player's going ham on it
+        - mainHand, offHand, head, body, trinket, accessory... even the 'basic four' first ones all represent plenty of stat-itude
+
+*/
+
+
+const allGear = {
+    'cat claw': {
+        meta: 'equipment', type: 'weapon', build: 'claw', name: `cat's claw`, slot: 'hand', icon: null, madeOf: ['leather', 'bone'], tier: 0,
+        mainStat: 'agility', equipStats: {atk: 0.5, dft: 0.75},
+        description: `Meow`,
+        specials: {}, damageType: 'slashing', variance: 0.1, useAbility: null
+    },
+    'short sword': {
+        meta: 'equipment', type: 'weapon', build: 'sword', name: `short sword`, slot: 'hand', icon: null, madeOf: ['iron'], tier: 0,
+        mainStat: 'strength', equipStats: {atk: 0.75, def: 0.25, dft: 0.25},
+        description: `Gets the job done!`,
+        specials: {}, damageType: 'slashing', variance: 0.2, useAbility: null
+    },
+    'leather armor': {
+        meta: 'equipment', type: 'armor', build: 'light armor', name: `leather armor`, slot: 'body', icon: null, madeOf: ['leather', 'bone'], tier: 0,
+        mainStat: 'agility', equipStats: {def: 0.5, res: 0.25, dft: 0.25},
+        description: `Meow`,
+        specials: {}, damageType: 'slashing', variance: 0.1, useAbility: null
+    },
+
+}
+
 const itemBlueprints = {
     'short sword': {
         meta: 'equipment', type: 'weapon', build: 'sword', name: 'short sword', slot: 'hand', icon: null, materialReqs: {metal: 2}, minLevel: 1,
@@ -2562,7 +2601,34 @@ const structBlueprints = {
 
 };
 
-//!MHRinteract
+//!MHRinteract ... which we should totally generalize and not lock into specific structs, right?
+
+// RIGHT!
+
+const structActions = {
+    gate(entity, township) {
+            // removing the 'struct' part of this and refactoring to target the TOWNSHIP instead
+            let mapToGrab = null;
+            console.log(`Testing NEO GATE CONFIGURATION. Let's see how she flies.`);
+            if (allWorlds[township.worldID] != null) {
+                entity.playStack = {...entity.playStack, wps: township.wps, worldID: township.worldID, mode: 'worldMap'};
+                // actually, we might have to sanitize the map obj a little, but for now we kinda need a lot of it, sooooooooo here ya go, bud:
+                mapToGrab = allWorlds[township.worldID];
+                
+                return io.to(entity.name).emit('enter_world_map', {playStack: entity.playStack, mapObj: mapToGrab});
+            }
+            return console.log(`Someone tried to enter a world through a town gate, but it failed for some reason. We should look into why that is...`);        
+    },
+    nexus(entity, township) {
+        console.log(`VWOOOOOM is the sound of crystals in the Nexus.`);
+    },
+    shop(entity, township) {
+        // bring up those WARES!
+        console.log(`${entity.name} wishes to go shopping! But ${township.nickname} is ill-equipped to handle such an idea.`);
+    }
+
+}
+
 const structInteractions = {
     'town gate': {
         gate(entity, target) {
@@ -2594,6 +2660,11 @@ const structInteractions = {
     'tradepost': {
         shop(entity, target) {
             console.log(`${entity?.name} wishes to shop.`);
+        }
+    },
+    'tradehall': {
+        shop(entity, target) {
+
         }
     },
     'inn': {
@@ -2768,7 +2839,67 @@ class NexusStruct extends Struct {
         this.construction = {opalite: 1000};
         this.inventory = null;
     }
+}
 
+class CrossroadStruct extends Struct {
+    constructor(structObj) {
+        super(structObj);
+        this.type = 'crossroad';
+        this.displayName = 'Crossroad';
+        this.id = null;
+        this.soulRef = null;
+        this.nickname = `The Crossroad`;
+        this.description = `A sharply-angled two-story building of chalkstone and timber. The Nexus of the township rests within, through which all Zenithican traffic passes, making this the first and last stop for all travelers coming through crystalline means. As such, this stucture pulls additional duty as a tavern and inn, offering simple room, board, and feasting fare for the weary traveler.`,
+        this.level = 1;
+        this.hp = 5000;
+        this.interactions = ['nexus'];
+        this.townstats = {traffic: 1, commerce: 1, waterIncome: 2};
+        this.refineOptions = [
+            {name: 'Brew Beer', resource: 'water', from: {veg: 1, water: 1}, into: {beer: 1}, time: 30},
+            {name: 'Prepare Vegetables', resource: 'veg', from: {veg: 1, water: 1}, into: {food: 1}, time: 30}
+        ];
+        this.icon = {type: 'x'};
+        this.mapImage = null;
+        this.dimensions = {x: 1, y: 1, z: 1};
+        this.mapSpot = null;
+        this.weight = 0;
+        this.buildLimit = 1;
+        this.npcSlots = null;
+        this.construction = {opalite: 10, timber: 40, chalkstone: 40};
+        this.inventory = null;
+    }
+}
+
+class TradehallStruct extends Struct {
+    constructor(structObj) {
+        super(structObj);
+        this.type = 'tradehall';
+        this.displayName = 'Tradehall';
+        this.id = null;
+        this.soulRef = null;
+        this.nickname = `The Tradehall`;
+        this.description = `Currently little more than a gigantic tent, under which all manner of tools of crafting and gathering are stored.`,
+        this.level = 1;
+        this.hp = 3500;
+        this.interactions = ['shop'];
+        this.townstats = {actionSlots: 3, commerce: 2, storage: 250};
+        this.refineOptions = [
+            {name: 'Butcher Game', resource: 'game', from: {game: 1, water: 1}, into: {food: 1, leather: 1}, time: 30},
+            {name: 'Cut Timber', resource: 'wood', from: {wood: 2}, into: {timber: 1}, time: 30},
+            {name: 'Smelt Ore', resource: 'ore', from: {ore: 2}, into: {iron: 1, copper: 1}, time: 30},
+            {name: 'Cut Chalkstone', resource: 'stone', from: {stone: 2}, into: {chalkstone: 1}, time: 30}
+        ];
+        this.icon = {type: 'x'};
+        this.mapImage = null;
+        this.dimensions = {x: 1, y: 1, z: 1};
+        this.mapSpot = null;
+        this.weight = 0;
+        this.buildLimit = 1;
+        this.npcSlots = null;
+        this.construction = {timber: 40, chalkstone: 40};
+        this.inventory = null;
+        this.wares = {};
+    }
 }
 
 class TownGateStruct extends Struct {
@@ -2782,7 +2913,7 @@ class TownGateStruct extends Struct {
         this.description = `A large gate made of sturdy weathered wood, standing just tall enough to ride a horse through without ducking.`,
         this.level = 1;
         this.hp = 1500;
-        this.interactions = {gate: 'gate', default: 'gate'};
+        this.interactions = ['gate'];
         this.icon = {type: 'x'};
         this.mapImage = null;
         this.dimensions = {x: 1, y: 1, z: 1};
@@ -2921,14 +3052,14 @@ class TradePostStruct extends Struct {
     }
 }
 
-class PitStruct extends Struct {
+class SpireStruct extends Struct {
     constructor(structObj) {
         super(structObj);
-        this.type = 'pit';
-        this.displayName = 'The Pit';
+        this.type = 'spire';
+        this.displayName = 'The Spire';
         this.id = null;
         this.soulRef = null;
-        this.nickname = `The Pit`;
+        this.nickname = `The Spire`;
         this.description = `Every township has one, and this is the most rudimentary version: a massive hole, dug downward at a slight angle, with the goal of being able to reach the choicest meats and fruits of the earth from the safety of the township.`;
         this.level = 1;
         this.hp = 3000;
@@ -2936,8 +3067,8 @@ class PitStruct extends Struct {
         this.townstats = {oreIncome: 1, stoneIncome: 1};
         this.icon = {type: 'x'};
         this.mapImage = null;
-        this.xyz = [2,1,1];
-        this.weight = 15;
+        this.xyz = [1,1,1];
+        this.weight = 0;
         this.buildLimit = 1;
         this.npcSlots = null;
         this.construction = {grease: 6000};
@@ -3504,14 +3635,14 @@ io.on('connection', (socket) => {
         // console.log(`Received loginData: `, loginData);
 
         if (loginData.token == null && loginData.name == null) {
-            let initialLocationData = {
-                name: 'Zenithica',
-                nickname: 'Zenithica',
-                description: allSouls['Zenithica'].township.townMap.description,
-                history: allSouls['Zenithica'].township.history.slice(-150),
-                structs: allSouls['Zenithica'].township.structs
-            };
-            return socket.emit('location_update', initialLocationData);
+            // let initialLocationData = {
+            //     name: 'Zenithica',
+            //     nickname: 'Zenithica',
+            //     description: allSouls['Zenithica'].township.townMap.description,
+            //     history: allSouls['Zenithica'].township.history.slice(-150),
+            //     structs: allSouls['Zenithica'].township.structs
+            // };
+            return socket.emit('location_update', createLocationData('Zenithica'));
         }
 
         if (loginData.token != null) {
@@ -3522,37 +3653,38 @@ io.on('connection', (socket) => {
             if (allSouls[decodedPlayerName] == null) return console.log(`That player doesn't exist at this time, for some reason.`);
             thisPlayer = allSouls[decodedPlayerName]; // NOTE: it's possible to have an 'old token' with nothing to match it to in some loading scenarios
             thisPlayer.following.forEach(soulName => socket.join(soulName));
-            let initialLocationData = {
-                name: thisPlayer.playStack.gps,
-                nickname: allSouls[thisPlayer.playStack.gps].township.nickname,
-                description: allSouls[thisPlayer.playStack.gps].township.townMap.description,
-                history: allSouls[thisPlayer.playStack.gps].township.history.slice(-150),
-                structs: allSouls[thisPlayer.playStack.gps].township.structs
-            };
+            // let initialLocationData = {
+            //     name: thisPlayer.playStack.gps,
+            //     nickname: allSouls[thisPlayer.playStack.gps].township.nickname,
+            //     description: allSouls[thisPlayer.playStack.gps].township.townMap.description,
+            //     history: allSouls[thisPlayer.playStack.gps].township.history.slice(-150),
+            //     structs: allSouls[thisPlayer.playStack.gps].township.structs
+            // };
             if (thisPlayer?.chatventure != null) thisPlayer.chatventure = allChatventures[thisPlayer.chatventure.id];
             socket.emit('player_update', sanitizePlayerObj(thisPlayer));
-            return socket.emit('location_update', initialLocationData);      
+            return socket.emit('location_update', createLocationData(thisPlayer.playStack.gps));      
             
         }
 
         if (loginData.name != null) {
-            let testHash = createHash(loginData.password, allSouls[loginData.name].salt);
+            if (allSouls[loginData.name] == null) return console.log(`This player just... doesn't exist.`);
+            let testHash = createHash(loginData.password, allSouls[loginData.name]?.salt);
             if (testHash === allSouls[loginData.name].hash) {
                 // console.log(`${loginData.name} has logged in via name and password.`);
                 const newToken = craftAccessToken(loginData.name);
                 socket.emit('reset_token', newToken);
                 thisPlayer = allSouls[loginData.name];
                 thisPlayer.following.forEach(soulName => socket.join(soulName));
-                let initialLocationData = {
-                    name: thisPlayer.playStack.gps,
-                    nickname: allSouls[thisPlayer.playStack.gps].township.nickname,
-                    description: allSouls[thisPlayer.playStack.gps].township.townMap.description,
-                    history: allSouls[thisPlayer.playStack.gps].township.history.slice(-150),
-                    structs: allSouls[thisPlayer.playStack.gps].township.structs
-                };
+                // let initialLocationData = {
+                //     name: thisPlayer.playStack.gps,
+                //     nickname: allSouls[thisPlayer.playStack.gps].township.nickname,
+                //     description: allSouls[thisPlayer.playStack.gps].township.townMap.description,
+                //     history: allSouls[thisPlayer.playStack.gps].township.history.slice(-150),
+                //     structs: allSouls[thisPlayer.playStack.gps].township.structs
+                // };
                 if (thisPlayer?.chatventure != null) thisPlayer.chatventure = allChatventures[thisPlayer.chatventure.id];
                 socket.emit('player_update', sanitizePlayerObj(thisPlayer));
-                return socket.emit('location_update', initialLocationData); 
+                return socket.emit('location_update', createLocationData(thisPlayer.playStack.gps)); 
             }
         }
         return;
@@ -3598,43 +3730,80 @@ io.on('connection', (socket) => {
     socket.on('view_township_management', reqObj => {
         const { soul } = reqObj;
         const township = allSouls[soul].township;
+        /*
+        
+            inventory: {
+                wood: 15, stone: 15, ore: 15, game: 0, water: 15, veg: 15,
+                hardwood: 0, 
+                timber: 0, chalkstone: 0, iron: 0, 
+                leather: 10, bone: 10, meat: 10, 
+            },        
+        */
         // !MHRmanage
-        let locationData = {
-            name: soul,
-            nickname: township.nickname,
-            description: township.townMap.description,
-            history: township.history.slice(-150),
-            structs: township.structs
-        };
 
-        // OH! we definitely want constructionCoords, build info, etc. as well
+
+        calcTownIncome(township);
+
+        // OH! we definitely want constructionCoords, build info, etc. as well... TOWNSTATS know the gatherSlots limit
+        // ADD the current selected coords to this concept
         let managementData = {
             wealth: township.wealth,
             weight: township.weight,
             townstats: {...township.townstats},
+            gatheringCoords: [...township.gatheringCoords],
+            building: [...township.building],
+            refining: [...township.refining],
+            refineOptions: [...township.refineOptions],
             mapObj: null,
-            wps: null
+            wps: null,
+            inventory: township.inventory
         };
         if (township.worldID != null) {
             managementData.mapObj = allWorlds[township.worldID];
             managementData.wps = township.wps;
         }
 
+        thisPlayer.playStack.mode = 'township_management';
+
         socket.emit('township_management_data', managementData);
 
-        function createLocationData(soulName) {
-            // since we make locationData SO many times in our code right now, let's function it up!
-            // all we really need to make locationData is the soulName, whereupon we can derive the rest with access to global vars' info
-            // let's add the mapData and management data... whiiiiich we still need to create, huh? ok, divergence! be back in a little bit...
-            // ... well, that was a couple days ago. What were we up to, again? :P
-            // at least we now have all our necessary stats. gonna emit back to player viewable info above before worrying about locationData (they should already have it there)
-            const township = allSouls[soulName].township;
-            return {
-                name: soulName,
-            }
-        }
+
+    });
+
+    socket.on('update_management_data', newMgmtData => {
+        // receiving: newMgmtData.newGatheringCoords
+        const { newGatheringCoords, newRefining, newBuilding } = newMgmtData;
+        // console.log(`Ho there! Backend here! We have received new gathering coords: ${newGatheringCoords}`);
+        // so far, so good... now, to IMPLEMENT
+        thisPlayer.township.gatheringCoords = [...newGatheringCoords];
+        thisPlayer.township.refining = [...newRefining];
+        thisPlayer.township.building = [...newBuilding];
+
+        console.log(`BEHOLD OUR NEW MANAGEMENT DATA- `, newMgmtData);
+
+        // decided to make 'refining' just a list of refining option NAMES, so when we go to check refining status, we use the NAME to grab the option's actual data
 
 
+        calcTownship(thisPlayer.township);
+
+        const township = thisPlayer.township;
+        calcTownIncome(township);
+
+        // this is subject to the same need to update as the above version... that is, construction data, etc.
+        let managementData = {
+            wealth: township.wealth,
+            weight: township.weight,
+            townstats: {...township.townstats},
+            gatheringCoords: [...township.gatheringCoords],
+            building: [...township.building],
+            refining: [...township.refining],
+            refineOptions: [...township.refineOptions],
+            mapObj: null,
+            wps: township.wps,
+            inventory: township.inventory
+        };
+
+        socket.emit('township_management_data', managementData);
     });
 
     socket.on('search_potential_friends', () => {
@@ -3654,11 +3823,18 @@ io.on('connection', (socket) => {
 
     socket.on('interact_with_struct', interactionObj => {
         if (thisPlayer?.name == null) return;
-        const { structToInteract, interaction } = interactionObj; 
+        const { soulTarget, interaction } = interactionObj;
+        const townshipTarget = allSouls[soulTarget].township;
+
+        if (interaction == null) return console.log(`Got a nully interaction request, for some reason?`);
+        structActions[interaction](thisPlayer, townshipTarget);
+
+
+        // OLD COMMENTS to be skimmed and trimmed:
 
         // ok, this works... we can run with it as long as we bake in all structInteractions properly
         // note that doing stuff like 'well' just kind of breaks it because we don't handle that... so, default-default it is!
-        if (structToInteract.interactions != null) structInteractions[structToInteract.type][interaction](thisPlayer, structToInteract);
+        // if (structToInteract.interactions != null) structInteractions[structToInteract.type][interaction](thisPlayer, structToInteract);
 
         // what should this socket return? anything in particular? let's brainstorm...
         /*
@@ -4064,20 +4240,25 @@ io.on('connection', (socket) => {
             worldID: null,
             wps: [0,0], // also a gatheringCoord, technically!
             gatheringCoords: [],
+            building: [],
+            refining: [],
+            refineOptions: [],
+            wares: [],
             weight: 0,
-            wealth: 0, // hm... 
+            interactions: ['nexus', 'gate'],
+            wealth: 0,
             inventory: {
-                wood: 15, stone: 15, ore: 15, game: 0, water: 15, veg: 15,
-                hardwood: 0, 
-                timber: 0, chalkstone: 0, iron: 0, 
-                leather: 10, bone: 10, meat: 10, 
+                wood: 15, stone: 15, ore: 15, game: 15, water: 15, veg: 15,
+                timber: 0, chalkstone: 0, iron: 0, copper: 0,
+                hardwood: 0, granite: 0, steel: 0, silver: 0,
+                leather: 0, bone: 0, meat: 0, beer: 0
             },
             townstats: {
                 woodIncome: 0, oreIncome: 0, stoneIncome: 0, gameIncome: 0, waterIncome: 0, vegIncome: 0,
                 woodAmp: 1, oreAmp: 1, stoneAmp: 1, gameAmp: 1, waterAmp: 1, vegAmp: 1, 
-                gatherSlots: 0, buildSlots: 0, traffic: 0, commerce: 0, storage: 0
+                actionSlots: 0, traffic: 0, commerce: 0, storage: 0
             },
-            constructionProjects: {}, // within township walls or within management radius
+            constructionProjects: {}, // anywhere actionSlots are deployed for construction purposes!
             icon: {},
             aesthetic: {}, // for changing look of the chatroom/township visit around, ultimately
             npcs: {}, // currently unsupported
@@ -4278,12 +4459,12 @@ io.on('connection', (socket) => {
         // consider any relevant abilities
         // also consider setting up a calcStats() type fxn to handle the lifting in the future (e.g. equipment changes, status effects, abilities, etc.)
         brandNewPlayer.stats.hpmax = Math.floor(30 + brandNewPlayer.stats.vitality + (brandNewPlayer.level * brandNewPlayer.stats.vitality / 10));
-        brandNewPlayer.stats.mpmax = Math.floor(30 + brandNewPlayer.stats.wisdom + (brandNewPlayer.level * brandNewPlayer.stats.wisdom / 10));
+        brandNewPlayer.stats.mpmax = Math.floor(10 + brandNewPlayer.stats.wisdom + (brandNewPlayer.level * brandNewPlayer.stats.wisdom / 20));
 
-        brandNewPlayer.stats.atk = Math.floor((brandNewPlayer.stats.strength + brandNewPlayer.stats.agility) / 2);
-        brandNewPlayer.stats.def = Math.floor((brandNewPlayer.stats.agility + brandNewPlayer.stats.vitality) / 2);  
-        brandNewPlayer.stats.mag = Math.floor((brandNewPlayer.stats.willpower + brandNewPlayer.stats.intelligence) / 2);  
-        brandNewPlayer.stats.spr = Math.floor((brandNewPlayer.stats.wisdom + brandNewPlayer.stats.intelligence) / 2);
+        brandNewPlayer.stats.atk = Math.floor((brandNewPlayer.stats.strength + brandNewPlayer.stats.strength + brandNewPlayer.stats.agility) / 3);
+        brandNewPlayer.stats.def = Math.floor((brandNewPlayer.stats.agility + brandNewPlayer.stats.agility + brandNewPlayer.stats.vitality) / 3);  
+        brandNewPlayer.stats.mag = Math.floor((brandNewPlayer.stats.willpower + brandNewPlayer.stats.willpower + brandNewPlayer.stats.intelligence) / 3);  
+        brandNewPlayer.stats.res = Math.floor((brandNewPlayer.stats.wisdom + brandNewPlayer.stats.intelligence + brandNewPlayer.stats.intelligence) / 3);
         brandNewPlayer.stats.dft = Math.floor((brandNewPlayer.stats.agility + brandNewPlayer.stats.intelligence) / 2);
         brandNewPlayer.stats.cha = 99;
         brandNewPlayer.stats.hp = brandNewPlayer.stats.hpmax;
@@ -4379,7 +4560,8 @@ io.on('connection', (socket) => {
         // let newGateID = generateRandomID('towngate');
         allSouls[brandNewPlayer.name].structs = {};
         // PitStruct, TradePostStruct, InnStruct, StorageStruct, BuildStruct, GatherStruct, TownGateStruct, NexusStruct, WellStruct
-        let structsToInit = [new NexusStruct(), new TownGateStruct(), new WellStruct(), new GatherStruct(), new BuildStruct(), new StorageStruct(), new InnStruct(), new TradePostStruct(), new PitStruct()];
+        // let structsToInit = [new NexusStruct(), new TownGateStruct(), new WellStruct(), new GatherStruct(), new BuildStruct(), new StorageStruct(), new InnStruct(), new TradePostStruct(), new PitStruct()];
+        let structsToInit = [new CrossroadStruct(), new TownGateStruct(), new TradehallStruct(), new SpireStruct()];
         //!MHRbrand
         structsToInit.forEach(classyStruct => {
             // let's see if this does the trick!
@@ -4437,19 +4619,21 @@ io.on('connection', (socket) => {
             battle: null
         };
 
+        thisPlayer.township.lastTick = new Date();
+
         // we can do a little push for flavor... add a quick bit of history event-age, some messages for the creator
 
         // we'll need locationData here, as well
-        let locationData = {
-            name: thisPlayer.name,
-            nickname:thisPlayer.township.nickname,
-            description: thisPlayer.township.townMap.description,
-            history: thisPlayer.township.history.slice(-150),
-            structs: thisPlayer.township.structs
-        };
+        // let locationData = {
+        //     name: thisPlayer.name,
+        //     nickname:thisPlayer.township.nickname,
+        //     description: thisPlayer.township.townMap.description,
+        //     history: thisPlayer.township.history.slice(-150),
+        //     structs: thisPlayer.township.structs
+        // };
 
         // MHRnao
-        socket.emit('upon_creation', {playerData: sanitizePlayerObj(thisPlayer), token: newPlayerToken, locationData: locationData, worldMap: newMap});
+        socket.emit('upon_creation', {playerData: sanitizePlayerObj(thisPlayer), token: newPlayerToken, locationData: createLocationData(thisPlayer.name), worldMap: newMap});
 
 
         return saveGameState();
@@ -4489,18 +4673,18 @@ io.on('connection', (socket) => {
         thisPlayer.playStack.gps = name;
     
         // MAP IT UP
-        let locationData = {
-            name: name,
-            nickname: allSouls[name].township.nickname,
-            description: allSouls[name].township.townMap.description,
-            history: allSouls[name].township.history.slice(-150),
-            structs: allSouls[name].township.structs
-        };
+        // let locationData = {
+        //     name: name,
+        //     nickname: allSouls[name].township.nickname,
+        //     description: allSouls[name].township.townMap.description,
+        //     history: allSouls[name].township.history.slice(-150),
+        //     structs: allSouls[name].township.structs
+        // };
         // console.log(`The location data for ${name} is thus: `, locationData);
         // yup, all of the struct functions just... aren't there anymore, for some totally unknown reason?
         // console.log(`HI! ${thisPlayer.name} is attempting to visit a new township. HERE IS ALL THAT TOWNSHIP DATA: `, allSouls[thisPlayer.playStack.gps].township)
         socket.join(name);
-        return socket.emit('location_update', locationData);
+        return socket.emit('location_update', createLocationData(name));
     });
 
     socket.on('chatventure_action', chatventureActionObj => {
@@ -4602,7 +4786,7 @@ io.on('connection', (socket) => {
             history: allSouls['Zenithica'].township.history.slice(-150),
             structs: allSouls['Zenithica'].township.structs
         };
-        socket.emit('location_update', initialLocationData);        
+        socket.emit('location_update', createLocationData('Zenithica'));
     });
 
 });
@@ -4721,7 +4905,7 @@ GameState.findOne({ dateKey: todaysDateKey })
             console.log(`STANDARD LOAD - same-day`);
             // game-loading! - situation of initial day-of loading
             const gameToLoad = JSON.parse(JSON.stringify(searchResult));
-
+            console.log(`Same-day load gameToLoad looks like this: `, gameToLoad);
             loadGame(gameToLoad);
 
             // HERE: create some sort of 'version check' for Zenithica where we can check to make sure it has all the shops/npcs/event hooks we want
@@ -4739,7 +4923,7 @@ function loadGame(gameObject) {
     allChatventures = gameObject.allChatventures;
     allSecrets = gameObject.allSecrets;
     allWorlds = gameObject.allWorlds;
-    // console.log(`Hi! Loading game object: `, gameObject);
+    console.log(`Hi! Loading game object: `, gameObject);
 
     if (allSouls['Zenithica'].structs == null) {
         console.log(`Oh, dear. Zenithica is bare. Can't let that stand. At least have a Nexus, Z!`);
@@ -5558,14 +5742,14 @@ function weightChoice(...choices) {
             nickname: `${brandNewPlayer.name}'s Township`,
             soulRef: `${brandNewPlayer.name}`,
             worldID: null,
-            wps: [0,0], // also a gatheringCoord, technically!
-            gatheringCoords: [],
+            wps: [0,0], 
+            gatheringCoords: [], // decrement actionSlots by this figure
             townstats: {
                 woodIncome: 0, oreIncome: 0, stoneIncome: 0, gameIncome: 0, waterIncome: 0, vegIncome: 0,
                 woodAmp: 1, oreAmp: 1, stoneAmp: 1, gameAmp: 1, waterAmp: 1, vegAmp: 1, 
-                gatherSlots: 0, buildSlots: 0, traffic: 0, commerce: 0
+                actionSlots: 0, traffic: 0, commerce: 0
             },
-            constructionProjects: {}, // within township walls or within management radius
+            constructionProjects: {}, // keys.length?... hmmmm... well, pretty much DO have to be objects
             icon: {},
             aesthetic: {}, // for changing look of the chatroom/township visit around, ultimately
             npcs: {}, // currently unsupported
@@ -5585,14 +5769,17 @@ function weightChoice(...choices) {
 
 
 function calcTownship(townshipRef) {
-    console.log(`Township's townstats BEFORE: `, townshipRef.townstats);
+    // console.log(`Township's townstats BEFORE: `, townshipRef.townstats);
 
     // resetti spaghetti
     townshipRef.townstats = {
         woodIncome: 0, oreIncome: 0, stoneIncome: 0, gameIncome: 0, waterIncome: 0, vegIncome: 0,
         woodAmp: 1, oreAmp: 1, stoneAmp: 1, gameAmp: 1, waterAmp: 1, vegAmp: 1, 
-        gatherSlots: 0, buildSlots: 0, traffic: 0, commerce: 0, storage: 0
+        actionSlots: 0, traffic: 0, commerce: 0, storage: 0
     };
+    townshipRef.refineOptions = [];
+    townshipRef.weight = 0;
+    townshipRef.interactions = [];
 
     Object.keys(townshipRef.structs).forEach(structKey => {
         townshipRef.weight += townshipRef.structs[structKey].weight;
@@ -5601,7 +5788,13 @@ function calcTownship(townshipRef) {
                 townshipRef.townstats[townstatKey] += townshipRef.structs[structKey].townstats[townstatKey];
             });
         }
-
+        if (townshipRef.structs[structKey].refineOptions != null) {
+            // might have to be wary of redundancies in the future, but we'll see!
+            townshipRef.refineOptions = [...townshipRef.refineOptions, ...townshipRef.structs[structKey].refineOptions];
+        }
+        if (townshipRef.structs[structKey].interactions != null) {
+            townshipRef.interactions = [...townshipRef.interactions, ...townshipRef.structs[structKey].interactions];
+        }
     });
 
     if (townshipRef.worldID != null) {
@@ -5616,8 +5809,112 @@ function calcTownship(townshipRef) {
         }
     }
 
-    console.log(`Township's townstats AFTER: `, townshipRef.townstats);
-    console.log(`Also, we should see that new WEIGHT starting out: ${townshipRef.weight}`);
+    console.log(`A post-init township `, townshipRef);
+    // console.log(`Also, we should see that new WEIGHT starting out: ${townshipRef.weight}`);
+}
+
+function calcTownIncome(townshipRef) {
+    // REFin' it up again
+    /*
+    
+        townstats: {
+        woodIncome: 0, oreIncome: 0, stoneIncome: 0, gameIncome: 0, waterIncome: 0, vegIncome: 0,
+        woodAmp: 1, oreAmp: 1, stoneAmp: 1, gameAmp: 1, waterAmp: 1, vegAmp: 1, 
+        actionSlots: 0, traffic: 0, commerce: 0, storage: 0
+        }
+        wealth: 0,
+        inventory: {
+            wood: 15, stone: 15, ore: 15, game: 0, water: 15, veg: 15,
+            hardwood: 0, 
+            timber: 0, chalkstone: 0, iron: 0, 
+            leather: 10, bone: 10, meat: 10, 
+        },
+        lastTick: a Date()
+
+
+
+        ... and should this include a general update such as building progress, ooooooor hrmmm
+            - for in-township stuff? absolutely! for world stuff? mmmmaybe not?
+
+        
+
+
+        ... townIncome is definitely inclusive of REFINING income, right? 
+        RIGHT!
+        so, townshipRef.refining is an array of refining NAMES... use 
+    
+    */
+
+    
+    
+
+    const rightNow = new Date();
+    const hoursElapsed = (rightNow - new Date(townshipRef.lastTick)) / 3600000;
+    if (hoursElapsed < (1 / 12)) return console.log(`Eh, it hasn't even been five minutes! Let's wait before calculating income.`);
+
+
+    let woodIncome = townshipRef.townstats.woodIncome * townshipRef.townstats.woodAmp * hoursElapsed;
+    let oreIncome = townshipRef.townstats.oreIncome * townshipRef.townstats.oreAmp * hoursElapsed;
+    let stoneIncome = townshipRef.townstats.stoneIncome * townshipRef.townstats.stoneAmp * hoursElapsed;
+    let gameIncome = townshipRef.townstats.gameIncome * townshipRef.townstats.gameAmp * hoursElapsed;
+    let waterIncome = townshipRef.townstats.waterIncome * townshipRef.townstats.waterAmp * hoursElapsed;
+    let vegIncome = townshipRef.townstats.vegIncome * townshipRef.townstats.vegAmp * hoursElapsed;
+    const totalIncome = woodIncome + oreIncome + stoneIncome + gameIncome + waterIncome + vegIncome * hoursElapsed;
+    let currentInventory = 0;
+    Object.keys(townshipRef.inventory).forEach(invKey => currentInventory += townshipRef.inventory[invKey]);
+    if (currentInventory + totalIncome > townshipRef.townstats.storage) {
+        // uh oh, we have an issue with TOO MUCH STUFF, handle overflow somehow right about here
+        // CURRENTLY: it's wildly unhandled :P
+        // my premise is to 'sell off' chunks of the income totals until we're in the clear
+        // ... a loop makes sense for that rather than a mere mortal IF, huh?
+    }
+
+    // all clear, add in the inventory!
+    townshipRef.inventory.wood += woodIncome;
+    townshipRef.inventory.ore += oreIncome;
+    townshipRef.inventory.stone += stoneIncome;
+    townshipRef.inventory.game += gameIncome;
+    townshipRef.inventory.water += waterIncome;
+    townshipRef.inventory.veg += vegIncome;
+
+    // plan to do more with this later, but for now, commerce = straight $$ :P
+    // maybe times... fiddy? for now? sure!
+    townshipRef.wealth += townshipRef.townstats.commerce * hoursElapsed * 50;
+
+    if (townshipRef.refining.length > 0) {
+        const minutesElapsed = Math.floor(hoursElapsed * 60);
+        
+
+        townshipRef.refining.forEach(refiningKey => {
+            // this shouuuuuld work?
+            const recipeObj = townshipRef.refineOptions.filter(refRecipe => refRecipe.name === refiningKey)[0];
+            let maxTimesToRun = Math.floor(minutesElapsed / recipeObj.time);
+            let timesToRun = 0;
+            let costs = {};
+            Object.keys(recipeObj.from).forEach(reqMat => {
+                costs[reqMat] = recipeObj.from[reqMat] * maxTimesToRun;
+                timesToRun = Math.floor(townshipRef.inventory[reqMat] / costs[reqMat]);
+                if (timesToRun > maxTimesToRun) timesToRun = maxTimesToRun;
+            });
+            // console.log(`Looks like we're looping through ${timesToRun} times on this refining mission!`);
+            // so we SHOULD have a valid timesToRun at the end of this to... redouble our efforts, so to speak
+            // basically we want to go through and decrement by timesToRun * cost for each inventory item and then increment by into via the same amt
+            Object.keys(recipeObj.from).forEach(reqMat => {
+                townshipRef.inventory[reqMat] -= timesToRun * recipeObj.from[reqMat];
+            });
+            Object.keys(recipeObj.into).forEach(resMat => {
+                townshipRef.inventory[resMat] += timesToRun * recipeObj.into[resMat];
+                // console.log(`Adding ${resMat} to the user's stock! Brings us up to a total of ${townshipRef.inventory[resMat]}.`);
+            });
+
+        });
+
+        // what are the odds everything above ends up working properly? :P
+        
+    }
+
+
+    townshipRef.lastTick = rightNow;
 }
 
 function calcTileIncome(tileString) {
@@ -5671,6 +5968,31 @@ function calcTileIncome(tileString) {
 
         // M (mountain): 2 ore, 2 stone
         case 'M': return {oreIncome: 2, stoneIncome: 2};
+    }
+}
+
+function createLocationData(soulName) {
+    // since we make locationData SO many times in our code right now, let's function it up!
+    // all we really need to make locationData is the soulName, whereupon we can derive the rest with access to global vars' info
+    // let's add the mapData and management data... whiiiiich we still need to create, huh? ok, divergence! be back in a little bit...
+    // ... well, that was a couple days ago. What were we up to, again? :P
+    // at least we now have all our necessary stats. gonna emit back to player viewable info above before worrying about locationData (they should already have it there)
+    // let locationData = {
+    //     name: soul,
+    //     nickname: township.nickname,
+    //     description: township.townMap.description,
+    //     history: township.history.slice(-150),
+    //     structs: township.structs
+    // };
+    
+    const township = allSouls[soulName].township;
+    return {
+        name: soulName,
+        nickname: township.nickname,
+        description: township.townMap.description,
+        history: township.history.slice(-150),
+        structs: township.structs,
+        interactions: township.interactions
     }
 }
 
