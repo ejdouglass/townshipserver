@@ -39,38 +39,109 @@ const io = socketIo(server, {
 /*
 
     quick synopsis:
-    - equipment no longer has flat stats or level
-    - equipment DOES have stat scaling based off of a main stat for that piece of gear
-    - so a sword might have mainStat: 'strength' and then have equipStats: {atk: 0.8, def: 0.5}... so 80% of strength is added to ATK, and 50% of strength is added to DEF
-    - just gotta decide on 'scaling'... like what's a good stat mod, a great one, an okay one, etc.?
-    - go by 0.25 maybe? 0.25, 0.50, 0.75, 1, 1.25? ... or just 1.25 total to begin with, divide however
-    - the "one B and one C" starter equipment logic => 0.75, 0.5
     - remember there's plenty of equipment slots, so don't be worried about having under-represented stats if the player's going ham on it
         - mainHand, offHand, head, body, trinket, accessory... even the 'basic four' first ones all represent plenty of stat-itude
 
+    should also probably 'restrict' the sort of stats commonly given to different slots... def/res/hp/mp on armor, atk/mag/dft/cha on weapons?
+    ... I don't mind mp on weapons either. :P
+    ... so, we'll try to keep it relatively balanced between gear, and possibly apply unique mods to stuff like head gear (modifies/syncs with other gear rather than providing 100% same stats?)
+
+    so 'negatives' are pure... -0.3 is a 30 percent loss, -0.8 is an 80 percent loss, not related to the mainStat
+
+    LATEST: don't like evently splitting the 1.3
+        so let's go back to ranks: S/A/B/C/D
+    ... which are then modded by rank, or nah? ... or maybe perks/slots/etc.
+
+    does somewhat limit our 'upward mobility' of options if we're starting at A rank stats, dunnit? :P
+
+    A = 1.6 / -0.25
+    B = 1.1 / -0.2
+    C = 0.6 / -0.15
+    D = 0.4 / -0.1
+
+    back to B+C theory
+        - the listed negatives are the 'value' of that negative, so for example if you have a D stat of 0.4, you can change it to C if you add a raw -0.1 somewhere
+        - currently this only applies to 'blank' stats, rather than subtracting 0.1 from ane existing stat for a 'free' bump
+
+
+
 */
 
+// all gear => all ITEMS, for easy ware-wolving :P
 
-const allGear = {
+const allItems = {
     'cat claw': {
-        meta: 'equipment', type: 'weapon', build: 'claw', name: `cat's claw`, slot: 'hand', icon: null, madeOf: ['leather', 'bone'], tier: 0,
-        mainStat: 'agility', equipStats: {atk: 0.5, dft: 0.75},
-        description: `Meow`,
+        meta: 'equipment', type: 'weapon', build: 'claw', name: `cat's claw`, slot: 'hand', icon: null, madeOf: ['leather', 'bone'], tier: 1,
+        mainStat: 'agility', equipStats: {atk: 0.6, dft: 1.1},
+        description: `A tight-fitting pawlike glove, adorned with fur and lousy with jagged rows of sharped bone.`,
         specials: {}, damageType: 'slashing', variance: 0.1, useAbility: null
     },
     'short sword': {
-        meta: 'equipment', type: 'weapon', build: 'sword', name: `short sword`, slot: 'hand', icon: null, madeOf: ['iron'], tier: 0,
-        mainStat: 'strength', equipStats: {atk: 0.75, def: 0.25, dft: 0.25},
-        description: `Gets the job done!`,
+        meta: 'equipment', type: 'weapon', build: 'sword', name: `short sword`, slot: 'hand', icon: null, madeOf: ['iron'], tier: 1,
+        mainStat: 'strength', equipStats: {atk: 0.6, def: 0.6, dft: 0.6},
+        description: `A stout, short, and balanced blade that's apt for rapidly striking and parrying.`,
         specials: {}, damageType: 'slashing', variance: 0.2, useAbility: null
     },
-    'leather armor': {
-        meta: 'equipment', type: 'armor', build: 'light armor', name: `leather armor`, slot: 'body', icon: null, madeOf: ['leather', 'bone'], tier: 0,
-        mainStat: 'agility', equipStats: {def: 0.5, res: 0.25, dft: 0.25},
-        description: `Meow`,
-        specials: {}, damageType: 'slashing', variance: 0.1, useAbility: null
+    'dagger': {
+        meta: 'equipment', type: 'weapon', build: 'dagger', name: `dagger`, slot: 'hand', icon: null, madeOf: ['iron'], tier: 1,
+        mainStat: 'agility', equipStats: {atk: 1.1, dft: 0.6},
+        description: `A viciously sharp, short blade suited for abrupt attacks.`,
+        specials: {}, damageType: 'stabbing', variance: 0.1, useAbility: null
     },
-
+    'hatchet': {
+        meta: 'equipment', type: 'weapon', build: 'axe', name: `hatchet`, slot: 'hand', icon: null, madeOf: ['iron'], tier: 1,
+        mainStat: 'strength', equipStats: {atk: 1.6, dft: -0.2},
+        description: `For its relatively short length, this short single-headed axe is pretty much ideal for taking apart either trees or monsters.`,
+        specials: {}, damageType: 'slashing', variance: 0.3, useAbility: null
+    },
+    'club': {
+        meta: 'equipment', type: 'weapon', build: 'hammer', name: `club`, slot: 'hand', icon: null, madeOf: ['wood'], tier: 1,
+        mainStat: 'vitality', equipStats: {atk: 1.6, def: -0.2},
+        description: `A stout, gnarled club of sturdy wood.`,
+        specials: {}, damageType: 'smashing', variance: 0.3, useAbility: null
+    },
+    'leather armor': {
+        meta: 'equipment', type: 'armor', build: 'light armor', name: `leather armor`, slot: 'body', icon: null, madeOf: ['leather'], tier: 1,
+        mainStat: 'agility', equipStats: {def: 0.6, res: 0.6, dft: 0.6},
+        description: `Carefully overlapped layers of pliable leather make up this relatively minimalist armor.`,
+        specials: {}, useAbility: null
+    },
+    'leather cap': {
+        meta: 'equipment', type: 'armor', build: 'cap', name: `leather cap`, slot: 'head', icon: null, madeOf: ['leather'], tier: 1,
+        mainStat: 'agility', equipStats: {def: 0.6, res: 0.6, dft: 0.6},
+        description: `An everyday leather cap for simple protection.`,
+        specials: {}, useAbility: null
+    },
+    'wand': {
+        meta: 'equipment', type: 'weapon', build: 'rod', name: `wand`, slot: 'hand', icon: null, madeOf: ['wood'], tier: 1,
+        mainStat: 'intelligence', equipStats: {mag: 1.1, dft: 0.6},
+        description: `Looking like not much more than a particularly twisted short length of branch, this forearm-long length of wood is crafted to amplify raw magical potential.`,
+        specials: {}, useAbility: null
+    },
+    'staff': {
+        meta: 'equipment', type: 'weapon', build: 'staff', name: `staff`, slot: 'hand', icon: null, madeOf: ['wood'], tier: 1,
+        mainStat: 'willpower', equipStats: {mag: 1.6, mp: -0.2},
+        description: `A long, slightly twisted length of wood almost as long as the average person is tall, meant to turn whimsical intention into magical reality.`,
+        specials: {}, damageType: 'smashing', variance: 0.2, useAbility: null
+    },
+    'cane': {
+        meta: 'equipment', type: 'weapon', build: 'staff', name: `cane`, slot: 'hand', icon: null, madeOf: ['wood'], tier: 1,
+        mainStat: 'wisdom', equipStats: {mag: 0.6, res: 1.1},
+        description: `Gets the job done!`,
+        specials: {}, damageType: 'smashing', variance: 0.2, useAbility: null
+    },
+    'buckler': {
+        meta: 'equipment', type: 'shield', build: 'small shield', name: `buckler`, slot: 'hand', icon: null, madeOf: ['leather', 'wood'], tier: 1,
+        mainStat: 'agility', equipStats: {def: 0.6, res: 0.6, dft: 0.6},
+        description: `A simple disc of toughened leather stretched over a tight wood frame, this light shield is ideal for quickly and precisely redirecting minor assaults.`,
+        specials: {}, useAbility: null
+    },
+    'oval shield': {
+        meta: 'equipment', type: 'shield', build: 'large shield', name: `oval shield`, slot: 'hand', icon: null, madeOf: ['iron'], tier: 1,
+        mainStat: 'vitality', equipStats: {def: 1.1, res: 1.1, dft: -0.15},
+        description: `A somewhat hefty shield of hammered iron, its dimensions are just wide enough to comfortably cover the entire torso, providing a handy space to cover oneself in battle.`,
+        specials: {}, useAbility: null
+    },
 }
 
 const itemBlueprints = {
@@ -212,6 +283,224 @@ const itemBlueprints = {
     }
     // add: dagger, club, 
 };
+
+
+/*
+
+    Note: This will have to move waaaay up in this file to work properly
+
+    Can brainstorm struct-y concepts here.
+    Also, thinking that 'upgrades' simply are [...]ables, so townstats would be old townstats {...theseTownStats}, for example
+    ... hm, we might get some overwrite issues, so let's be a little careful about how we implement (ADDING the most relevant from baseStats + upgrade, rather than overwriting?)
+    ... or just add 'em to the new Struct() init; give an 'adder' fxn that properly pools in all specializations
+    ... SO! all specs are ADDITIONS, while all upgrades are REPLACEMENTS, I'm sure we'll never get that mixed up at all, which is great
+    - this means that all calculations for a new Struct will have to {...baseStats, ...upgradeSpecs[newestLevel]}
+        - it also means that all upgradeSpecs MUST 
+        - alternatively, we can do some creative looping and just keep spreading the new upgradeSpecs to 'catch' all the changes?
+        - actually, that's fine, too, all told
+
+    township income calculations are based off HOURS elapsed, so we'll say grease is measured in hours :P
+
+*/
+const allTownshipStructs = {
+    'crossroad': {
+        baseStats: {
+            type: 'crossroad', displayName: 'Wayfarer Inn', id: null, soulRef: null, nickname: `The Crossroads`, level: 1, hp: 2000, interactions: ['nexus'], icon: null, weight: 0,
+            townstats: {traffic: 1, commerce: 1, waterIncome: 2},
+            description: `The de facto heart of the township that houses the Nexus that connects it to Zenithica and all its outposts. A practical structure that is mainly an inn and tavern, providing common service to travelers that come through via Nexus or more mundane means. The central town well adjoins the building.`, 
+            refineOptions: [
+                {name: 'Brew Beer', resource: 'water', from: {veg: 2, water: 2}, into: {beer: 2}, time: 60},
+                {name: 'Prepare Vegetables', resource: 'veg', from: {veg: 4, water: 2}, into: {food: 2}, time: 60}
+            ],
+            buildLimit: 1, npcSlots: null, construction: {opalite: 25, wood: 20, stone: 20}
+        },
+        upgradeSpecs: [
+            null, null,
+            {level: 2, hp: 2500, displayName: 'Wayfarer Inn', construction: {wood: 0, stone: 0, leather: 0, ore: 0, wealth: 0, grease: 0}},
+            {level: 3, hp: 3000, displayName: 'Travelers Lodge', construction: {timber: 30, chalkstone: 30, iron: 30, copper: 20, wealth: 150, food: 15, grease: 30}},
+            {level: 4, hp: 3500, displayName: 'Travelers Lodge', construction: {timber: 75, chalkstone: 75, iron: 10, copper: 10, wealth: 350, grease: 60}},
+            {level: 5, hp: 4250, displayName: 'Crossroads Hall', construction: {hardwood: 40, marble: 40, pelt: 25, steel: 35, silver: 25, wealth: 1000, grease: 120}},
+            {level: 6, hp: 5000, displayName: 'Crossroads Hall', construction: {opalite: 9999, grease: 9999}},
+        ],
+        specializations: {
+            'Town Well Lv.2': {name: `Town Well Lv.2`, townstats: {waterIncome: 1}, cost: {grease: 3, wealth: 50, timber: 10, chalkstone: 10, iron: 10, copper: 5}, reqs: {}, description: `Renovates the central well of the township Crossroads, providing +1 water per hour.`},
+            // 'Building Upgrades Lv.2': {name: `Building Upgrades Lv.2`, townstats: {upgradeCap: 2}, cost: {grease: 6, wealth: 150}, reqs: {}, description: `Through careful township planning and resource management, it becomes possible to upgrade all township buildings to their fourth tier of development.`},
+            // 'Township Management Lv.2': {name: `Township Management Lv.2`, townstats: {buildCapacity: 2}, cost: {grease: 6, wealth: 150}, reqs: {}, description: `Extends the influence of the Nexus, allowing space for a couple additional buildings in the township.`},
+            // 'Edict of Expansion': {name: `Edict of Expansion`, townstats: {upgradeCap: 1, buildCapacity: 1}, cost: {grease: 24, wealth: 1000}, reqs: {specs: []}, description: ``}
+        }
+    },
+    'tradehall': {
+        baseStats: {
+            type: 'tradehall', displayName: 'Tradecraft Tent', id: null, soulRef: null, nickname: `The Tradehall`, level: 1, hp: 500, interactions: ['shop'], icon: null, weight: 0,
+            townstats: {actionSlots: 2, commerce: 2, storage: 500},
+            description: `An expansive tent, held up by massive tree trunks, under which rests all manner of equipment for gathering, refining, and crafting. A massive collection of crates surrounds the perimeter, housing the bulk of the township's inventory.`, 
+            refineOptions: [
+                {name: 'Butcher Game', resource: 'game', from: {game: 4, water: 2}, into: {food: 2, leather: 2}, time: 60},
+                {name: 'Cut Timber', resource: 'wood', from: {wood: 4}, into: {timber: 2}, time: 60},
+                {name: 'Smelt Ore', resource: 'ore', from: {ore: 4}, into: {iron: 2, copper: 1}, time: 60},
+                {name: 'Cut Chalkstone', resource: 'stone', from: {stone: 4}, into: {chalkstone: 2}, time: 60}
+            ],
+            buildLimit: 1, npcSlots: null, construction: {timber: 80, chalkstone: 80, iron: 40, copper: 40, leather: 30},
+            wares: ['short sword', 'dagger', 'hatchet', 'club', 'leather armor', 'leather cap', 'staff', 'buckler']
+        },
+        upgradeSpecs: [
+            null, null, 
+            {level: 2, hp: 800, displayName: 'Tradecraft Tent', construction: {dreams: 100, grease: 10}},
+        ],
+        specializations: {
+            'Expand Storage': {name: `Expand Storage`, townstats: {storage: 500}, cost: {wealth: 250, grease: 2, stone: 20, wood: 20}, reqs: {}, description: ``},
+            'Curious Armaments': {}
+        }
+    },
+    'mineshaft': {
+        baseStats: {
+            type: 'mineshaft', displayName: 'Mineshaft Gatehouse', id: null, soulRef: null, nickname: `The Mineshaft`, level: 1, hp: 1000, interactions: null, icon: null, weight: 0,
+            townstats: {oreIncome: 1, stoneIncome: 1},
+            description: `A simple wooden gatehouse stands over and encloses what is essentially a pit, dug in careful serpentine tunnels under the township to procure the riches of the earth below. This gatehouse also serves as a storeroom, housing abundant mining and prospecting tools in various states of repair.`, 
+            buildLimit: 1, npcSlots: null, construction: {wood: 40, stone: 20, iron: 10}
+        },
+        upgradeSpecs: [
+            null, null,
+            {level: 2, hp: 1300, displayName: 'Mineshaft Gatehouse', construction: {dreams: 100, grease: 10}}
+        ],
+        specializations: {
+            'Perpendicular Prospecting': {description: ``, name: 'Perpendicular Prospecting', townstats: {oreIncome: 0.5}, cost: {grease: 4, wealth: 50}, reqs: {}},
+            'Qualmless Quarrying': {description: ``, name: 'Qualmless Quarrying', townstats: {stoneIncome: 0.5}, cost: {grease: 4, wealth: 50}, reqs: {}},
+            'Hill Harvesting Hacks': {description: ``, name: 'Hill Harvesting Hacks', tileIncomes: {}, cost: {grease: 4}, reqs: {}}
+        }
+    },
+    'town wall': {
+        baseStats: {
+            type: 'town wall', displayName: 'Lowstone Wall', id: null, soulRef: null, nickname: `The Town Wall`, level: 1, hp: 2500, interactions: ['gate'], icon: null, weight: 0,
+            description: `The wall that surrounds and protects the town. Could do with a moat, perhaps.`, 
+            buildLimit: 1, npcSlots: null, construction: {timber: 150, chalkstone: 150}
+        },
+        upgradeSpecs: [
+            null, null, 
+            {level: 2, displayName: 'Lowstone Wall', hp: 3000, construction: {dreams: 100, grease: 10}}
+        ],
+        specializations: {
+            'Nada': {name: 'Nada'}
+        }
+    },
+    'smithy': {
+        baseStats: {
+            type: 'smithy', displayName: 'Smithy Hut', id: null, soulRef: null, nickname: `Smithy`, level: 1, hp: 1250, interactions: null, icon: null, weight: 1,
+            townstats: {ironAmp: 0.2, copperAmp: 0.2},
+            description: `A minimalist hut containing all the rudimentary tools and spaces for metalworking, filled with an ever-present oppressive heat mixed with the scent of steel and sweat. Enhances the township's ability to process ore into useful metals, unlocks higher ore refining options, and can develop the ability to sell better metal weapons and armor.`, 
+            buildLimit: null, npcSlots: null, construction: {wood: 10, stone: 20, ore: 5, grease: 0.25},
+            wares: []
+        },
+        upgradeSpecs: [
+            null, null, 
+            {displayName: `Smithy Hut`, townstats: {ironAmp: 0.25, copperAmp: 0.25}, level: 2, hp: 1500, construction: {wood: 35, stone: 35, ore: 15, grease: 2}, description: ``},
+            {displayName: `Forge`, townstats: {ironAmp: 0.3, copperAmp: 0.3, steelAmp: 0.15, silverAmp: 0.15}, level: 3, hp: 2000, construction: {timber: 25, chalkstone: 25, iron: 20, grease: 12}, description: ``},
+            {displayName: `Forge`, townstats: {ironAmp: 0.35, copperAmp: 0.35, steelAmp: 0.2, silverAmp: 0.2}, level: 4, hp: 2500, construction: {timber: 40, chalkstone: 40, steel: 10, copper: 20, grease: 16}, description: ``},
+            {displayName: `Smithing Hall`, townstats: {ironAmp: 0.4, copperAmp: 0.4, steelAmp: 0.25, silverAmp: 0.25}, level: 5, hp: 3200, construction: {hardwood: 35, marble: 35, steel: 30, grease: 20}, description: ``},
+        ],
+        specializations: {
+            'Iron Weaponsmithing': {name: 'Iron Weaponsmithing', wares: [], cost: {}, reqs: {}, description: ``},
+            'Fundamental Armorsmithing': {name: 'Fundamental Armorsmithing', wares: [], cost: {}, reqs: {}, description: ``},
+            'Improve Iron Smelting': {name: 'Improve Iron Smelting', townstats: {ironAmp: 0.25}, cost: {}, reqs: {}, description: ``},
+            'Improve Copper Smelting': {name: 'Improve Copper Smelting', townstats: {copperAmp: 0.25}, cost: {}, reqs: {}, description: ``},
+        }
+    },
+    'hunter': {
+        baseStats: {
+            type: 'hunter', displayName: 'Hunting Den', id: null, soulRef: null, nickname: `Huntin' Den`, level: 1, hp: 750, interactions: null, icon: null, weight: 1,
+            townstats: {gameAmp: 0.2, vegAmp: 0.2},
+            tileIncomes: {
+                'v': {gameIncome: 0.5, vegIncome: 0.5},
+                'p': {gameIncome: 0.5, vegIncome: 0.5},
+                'u': {gameIncome: 0.5, vegIncome: 0.5},
+                'j': {gameIncome: 0.5, vegIncome: 0.5},
+                'w': {gameIncome: 0.5, vegIncome: 0.5},
+                't': {gameIncome: 0.5, vegIncome: 0.5},
+            },
+            description: `A small and rustic building housing various tools of hunting, gathering, tracking, and leatherworking. Increases all township game and vegetation income due to increased knowledge of animal and plant processing, and provides a good boost to the township's ability to gather from flatlands and forests.`, 
+            buildLimit: null, npcSlots: null, construction: {wood: 15, stone: 15, grease: 0.25},
+            wares: []
+        },
+        upgradeSpecs: [
+            null, null, 
+            {displayName: `Hunting Den`, townstats: {gameAmp: 0.25, vegAmp: 0.25}, level: 2, hp: 1000, construction: {wood: 35, stone: 15, leather: 15, grease: 2}, description: ``},
+            {displayName: `Trackers' Cabin`, townstats: {gameAmp: 0.3, vegAmp: 0.3}, level: 3, hp: 1400, construction: {timber: 35, chalkstone: 15, iron: 20, grease: 12}, description: ``},
+            {displayName: `Trackers' Cabin`, townstats: {gameAmp: 0.35, vegAmp: 0.35}, level: 4, hp: 1800, construction: {timber: 40, chalkstone: 40, steel: 10, copper: 20, grease: 16}, description: ``},
+            {displayName: `Hunters' Hall`, townstats: {gameAmp: 0.4, vegAmp: 0.4}, level: 5, hp: 2350, construction: {hardwood: 35, marble: 35, steel: 30, grease: 20}, description: ``},
+        ],
+        specializations: {
+            'Hunting Gear': {name: 'Hunting Gear', wares: [], cost: {}, reqs: {}, description: ``},
+        }
+    },
+    'angler': {
+        baseStats: {
+            type: 'angler', displayName: `Anglers' Shack`, id: null, soulRef: null, nickname: `Fishin' Shack`, level: 1, hp: 750, interactions: null, icon: null, weight: 1,
+            townstats: {waterAmp: 0.2},
+            tileIncomes: {
+                'o': {gameIncome: 1.5, vegIncome: 0.5},
+                'c': {gameIncome: 0.5, waterIncome: 0.5, vegIncome: 0.5},
+                'l': {gameIncome: 0.5, waterIncome: 0.5, vegIncome: 0.5},
+                'f': {gameIncome: 0.5, waterIncome: 1.5},
+            },
+            description: `A somewhat ramshackle building bearing various tools for fishing and simple watercraft. Substantially improves the township's ability to gather fish and other game from oceans and lakes, as well as make use of local vegetation native to these bodies of water. A basic desalination and filtration setup helps the township make better use of all water supplies.`, 
+            buildLimit: null, npcSlots: null, construction: {wood: 20, stone: 10, grease: 0.25},
+            wares: []
+        },
+        upgradeSpecs: [
+            null, null, 
+            {displayName: `Anglers' Shack`, townstats: {waterAmp: 0.25}, level: 2, hp: 1000, construction: {wood: 35, stone: 15, leather: 15, grease: 2}, description: ``},
+            {displayName: `Anglers' Abode`, townstats: {waterAmp: 0.3}, level: 3, hp: 1400, construction: {timber: 35, chalkstone: 15, iron: 20, grease: 12}, description: ``},
+            {displayName: `Anglers' Abode`, townstats: {waterAmp: 0.35}, level: 4, hp: 1800, construction: {timber: 40, chalkstone: 40, steel: 10, copper: 20, grease: 16}, description: ``},
+            {displayName: `Waterfarer Hall`, townstats: {waterAmp: 0.4}, level: 5, hp: 2350, construction: {hardwood: 35, marble: 35, steel: 30, grease: 20}, description: ``},
+        ],
+        specializations: {
+            'Feesh!': {name: 'Feesh!', wares: [], cost: {}, reqs: {}, description: ``},
+        } 
+    },
+    'sawmill': {
+        baseStats: {
+            type: 'sawmill', displayName: `Small Sawmill`, id: null, soulRef: null, nickname: `Buzzin Saw`, level: 1, hp: 750, interactions: null, icon: null, weight: 1,
+            townstats: {woodAmp: 0.2, timberAmp: 0.2},
+            tileIncomes: {
+                'j': {woodIncome: 1},
+                'w': {woodIncome: 1},
+                't': {woodIncome: 1},
+            },
+            description: `Essentially a long, open-air structure for housing lumber and processing wood. The tools and expertise here enhance the ability to find and gather quality wood from forests, enhance yields from converting raw wood into timber, and can ultimately develop the means to procure the higher grades of wood work.`, 
+            buildLimit: null, npcSlots: null, construction: {wood: 15, stone: 10, ore: 10, grease: 0.25},
+            wares: []
+        },
+        upgradeSpecs: [
+            null, null, 
+            {displayName: `Small Sawmill`, townstats: {woodAmp: 0.25, timberAmp: 0.25}, level: 2, hp: 1000, construction: {wood: 35, stone: 15, leather: 15, grease: 2}, description: ``},
+            {displayName: `Sawmill`, townstats: {woodAmp: 0.3, timberAmp: 0.3}, level: 3, hp: 1400, construction: {timber: 35, chalkstone: 15, iron: 20, grease: 12}, description: ``},
+            {displayName: `Sawmill`, townstats: {woodAmp: 0.35, timberAmp: 0.35}, level: 4, hp: 1800, construction: {timber: 40, chalkstone: 40, steel: 10, copper: 20, grease: 16}, description: ``},
+            {displayName: `Swarthy Sawmill`, townstats: {woodAmp: 0.4, timberAmp: 0.4}, level: 5, hp: 2350, construction: {hardwood: 35, marble: 35, steel: 30, grease: 20}, description: ``},
+        ],
+        specializations: {
+            'Oaky': {name: 'Oaky', wares: [], cost: {}, reqs: {}, description: ``},
+        }
+    },
+    'farm': {
+        baseStats: {
+            type: 'farm', displayName: `Community Garden`, id: null, soulRef: null, nickname: `Veggies`, level: 1, hp: 750, interactions: null, icon: null, weight: 1,
+            townstats: {vegIncome: 1, waterIncome: 1, gameIncome: 1},
+            description: `A somewhat spacious plot of land, carefully cultivated to be as self-contained as possible, featuring tilled soil, a small pen for livestock, and a rudimentary well for providing a fresh water source. Provides a steady internal source of game, vegetation, and water.`, 
+            buildLimit: null, npcSlots: null, construction: {wood: 15, stone: 15, grease: 0.25},
+            wares: []
+        },
+        upgradeSpecs: [
+            null, null, 
+            {displayName: `Community Garden`, townstats: {vegIncome: 1.1, waterIncome: 1.1, gameIncome: 1.1}, level: 2, hp: 1000, construction: {wood: 35, stone: 15, leather: 15, grease: 2}, description: ``},
+            {displayName: `Small Farm`, townstats: {vegIncome: 1.2, waterIncome: 1.2, gameIncome: 1.2}, level: 3, hp: 1400, construction: {timber: 35, chalkstone: 15, iron: 20, grease: 12}, description: ``},
+            {displayName: `Small Farm`, townstats: {vegIncome: 1.3, waterIncome: 1.3, gameIncome: 1.3}, level: 4, hp: 1800, construction: {timber: 40, chalkstone: 40, steel: 10, copper: 20, grease: 16}, description: ``},
+            {displayName: `Farmstead`, townstats: {vegIncome: 1.4, waterIncome: 1.4, gameIncome: 1.4}, level: 5, hp: 2350, construction: {hardwood: 35, marble: 35, steel: 30, grease: 20}, description: ``},
+        ],
+        specializations: {
+            'Aminals!': {name: 'Aminals!', wares: [], cost: {}, reqs: {}, description: ``},
+        }
+    }
+}
 
 // by tier-key
 // material, adjective, prefix, etc. to modify; such as Heavy Steel Greatsword, Gleaming Coldsteel Cutlass
@@ -1874,7 +2163,7 @@ class Mob {
         // could use blueprintRef @ mobBlueprints to help roll up level-appropriate data/abilities/stats/equipment/etc.
         // probably should include some param(s) to help init chatventureID for mobs, location information for NPCs?
         // can pull together a calcStats fxn for players and mobs alike, apply it here
-        console.log(`A new mob has spawned! Looks like this: `, this);
+        // console.log(`A new mob has spawned! Looks like this: `, this);
 
     }
     actOut() {
@@ -2502,7 +2791,7 @@ const structBlueprints = {
                     newChatventure.options['explore'] = createChatventureOption['explore'](`EXPLORE`);
                     
                     
-                    console.log(`A NEW CHATVENTURE LOOKS LIKE THIS: `, newChatventure);
+                    // console.log(`A NEW CHATVENTURE LOOKS LIKE THIS: `, newChatventure);
 
                     // HERE: allChatventures - created
                     allChatventures[newChatventure.id] = JSON.parse(JSON.stringify(newChatventure));
@@ -2609,7 +2898,6 @@ const structActions = {
     gate(entity, township) {
             // removing the 'struct' part of this and refactoring to target the TOWNSHIP instead
             let mapToGrab = null;
-            console.log(`Testing NEO GATE CONFIGURATION. Let's see how she flies.`);
             if (allWorlds[township.worldID] != null) {
                 entity.playStack = {...entity.playStack, wps: township.wps, worldID: township.worldID, mode: 'worldMap'};
                 // actually, we might have to sanitize the map obj a little, but for now we kinda need a lot of it, sooooooooo here ya go, bud:
@@ -2743,26 +3031,28 @@ commerce is... a currently poorly-defined reflection of the concept that folks c
 
 
 //! MHRstructclass
+// boy, if we want to get REALLY saucy, we could just have constructor(structObj) and then do this = {...structObj}? :P
 
 class Struct {
     constructor(structObj) {
-        this.type = null;
-        this.displayName = null;
+        this.type = structObj.type || ``;
+        this.displayName = structObj.displayName || ``;
         this.id = null;
         this.soulRef = null;
-        this.nickname = ``;
-        this.description = ``;
-        this.level = 0;
-        this.hp = 10;
-        this.interactions = null;
-        this.icon = {type: 'x'};
-        this.mapImage = null;
-        this.xyz = [1,1,1];
-        this.weight = 0;
-        this.buildLimit = null;
-        this.npcSlots = null;
-        this.construction = {grease: 1};
-        this.inventory = null;
+        this.nickname = structObj.nickname || ``;
+        this.description = structObj.description || `A mass of materials, in a shape, resembling a structure.`;
+        this.level = structObj.level || 0;
+        this.hp = structObj.hp || 10;
+        this.townstats = structObj.townstats || {};
+        this.refineOptions = structObj.refineOptions || [];
+        this.interactions = structObj.interactions || null;
+        this.specializations = structObj.specializations || {};
+        this.icon = structObj.icon || null;
+        this.weight = structObj.weight || 0;
+        this.buildLimit = structObj.buildLimit || null;
+        this.npcSlots = structObj.npcSlots || null;
+        this.construction = structObj.construction || null;
+        this.wares = structObj.wares || null;
     }
 
     init(place) {
@@ -2771,14 +3061,37 @@ class Struct {
         // assuming for now that place is a township in allSouls somewhere
         // console.log(`Well hi I'm a new struct about to be born unto the world! The old place: `, place);
         if (place.structs == null) place.structs = {};
-        let newID = generateRandomID('struct');
-        this.id = newID;
+        
         this.soulRef = place.soulRef; // works fine for townships, at any rate :P
-        place.structs[newID] = this;
-        // whoops! forgot we need that soulRef for a lot of struct interactions
-        // do townships have their own soulref? one sec...
-        // console.log(`Behold the NEW place! `, place);
-        return this;
+        switch (this.type) {
+            case 'crossroad': {
+                this.id = 'crossroad';
+                place.structs['crossroad'] = this;
+                return this;
+            }
+            case 'tradehall': {
+                this.id = 'tradehall';
+                place.structs['tradehall'] = this;
+                return this;
+            }
+            case 'mineshaft': {
+                this.id = 'mineshaft';
+                place.structs['mineshaft'] = this;
+                return this;
+            }
+            case 'town wall': {
+                this.id = 'town wall';
+                place.structs['town wall'] = this;
+                return this;
+            }
+            default: {
+                let newID = generateRandomID('struct');
+                this.id = newID;
+                place.structs[newID] = this;
+                return this;
+            }
+        }
+
     }
 
     beginBuilding(source, target) {
@@ -2855,8 +3168,8 @@ class CrossroadStruct extends Struct {
         this.interactions = ['nexus'];
         this.townstats = {traffic: 1, commerce: 1, waterIncome: 2};
         this.refineOptions = [
-            {name: 'Brew Beer', resource: 'water', from: {veg: 1, water: 1}, into: {beer: 1}, time: 30},
-            {name: 'Prepare Vegetables', resource: 'veg', from: {veg: 1, water: 1}, into: {food: 1}, time: 30}
+            {name: 'Brew Beer', resource: 'water', from: {veg: 2, water: 2}, into: {beer: 2}, time: 60},
+            {name: 'Prepare Vegetables', resource: 'veg', from: {veg: 4, water: 2}, into: {food: 2}, time: 60}
         ];
         this.icon = {type: 'x'};
         this.mapImage = null;
@@ -2884,10 +3197,10 @@ class TradehallStruct extends Struct {
         this.interactions = ['shop'];
         this.townstats = {actionSlots: 3, commerce: 2, storage: 250};
         this.refineOptions = [
-            {name: 'Butcher Game', resource: 'game', from: {game: 1, water: 1}, into: {food: 1, leather: 1}, time: 30},
-            {name: 'Cut Timber', resource: 'wood', from: {wood: 2}, into: {timber: 1}, time: 30},
-            {name: 'Smelt Ore', resource: 'ore', from: {ore: 2}, into: {iron: 1, copper: 1}, time: 30},
-            {name: 'Cut Chalkstone', resource: 'stone', from: {stone: 2}, into: {chalkstone: 1}, time: 30}
+            {name: 'Butcher Game', resource: 'game', from: {game: 4, water: 2}, into: {food: 2, leather: 2}, time: 60},
+            {name: 'Cut Timber', resource: 'wood', from: {wood: 4}, into: {timber: 2}, time: 60},
+            {name: 'Smelt Ore', resource: 'ore', from: {ore: 4}, into: {iron: 2, copper: 1}, time: 60},
+            {name: 'Cut Chalkstone', resource: 'stone', from: {stone: 4}, into: {chalkstone: 2}, time: 60}
         ];
         this.icon = {type: 'x'};
         this.mapImage = null;
@@ -2905,14 +3218,14 @@ class TradehallStruct extends Struct {
 class TownGateStruct extends Struct {
     constructor(structObj) {
         super(structObj);
-        this.type = 'town gate';
-        this.displayName = 'Town Gate'
+        this.type = 'town wall';
+        this.displayName = 'Town Wall'
         this.id = null;
         this.soulRef = null;
-        this.nickname = `The Town Gate`;
-        this.description = `A large gate made of sturdy weathered wood, standing just tall enough to ride a horse through without ducking.`,
+        this.nickname = `The Town Wall`;
+        this.description = `A large wall made of sturdy weathered wood, with a stately gate on one side for traffic to pass through, and monsters to NOT pass through, if all goes well.`,
         this.level = 1;
-        this.hp = 1500;
+        this.hp = 8500;
         this.interactions = ['gate'];
         this.icon = {type: 'x'};
         this.mapImage = null;
@@ -3055,11 +3368,11 @@ class TradePostStruct extends Struct {
 class SpireStruct extends Struct {
     constructor(structObj) {
         super(structObj);
-        this.type = 'spire';
-        this.displayName = 'The Spire';
+        this.type = 'mineshaft';
+        this.displayName = `Delvers' Pit`;
         this.id = null;
         this.soulRef = null;
-        this.nickname = `The Spire`;
+        this.nickname = `Moley Holey`;
         this.description = `Every township has one, and this is the most rudimentary version: a massive hole, dug downward at a slight angle, with the goal of being able to reach the choicest meats and fruits of the earth from the safety of the township.`;
         this.level = 1;
         this.hp = 3000;
@@ -3723,41 +4036,145 @@ io.on('connection', (socket) => {
             // console.log(`I do loop! Newspawnpoint is `, newSpawnPoint)
             // console.log(`Looks like the square we're on is of the type ${newestWorld.map[newSpawnPoint[0]][newSpawnPoint[1]]}`)
         } while (newestWorld.map[newSpawnPoint[0]][newSpawnPoint[1]] === 'o');
-        console.log(`Picked a delightful new spawn point for you! It is `, newSpawnPoint);
+        // console.log(`Picked a delightful new spawn point for you! It is `, newSpawnPoint);
         socket.emit('new_play_map', {mapData: newestWorld.map, spawnPoint: newSpawnPoint});
     });
 
-    socket.on('view_township_management', reqObj => {
-        const { soul } = reqObj;
-        const township = allSouls[soul].township;
-        /*
-        
-            inventory: {
-                wood: 15, stone: 15, ore: 15, game: 0, water: 15, veg: 15,
-                hardwood: 0, 
-                timber: 0, chalkstone: 0, iron: 0, 
-                leather: 10, bone: 10, meat: 10, 
-            },        
-        */
-        // !MHRmanage
+    socket.on('build_new_struct', reqObj => {
+        //!MHRBUILD
+    });
 
+    socket.on('begin_struct_upgrade', reqObj => {
+        // validate that we CAN actually upgrade with
+
+        const { targetStruct } = reqObj;
+        const targetLevel = targetStruct.level + 1;
+
+        // NOTE: we need to make sure we replace this with JWT authentication in the future, since we have the capability
+        // a validator/fixer fxn would be ideal
+        // for now we're doing it... not that securely, all told :P
+        if (thisPlayer == null) thisPlayer = allSouls[targetStruct.soulRef];
+
+        const township = thisPlayer.township;
+        if (targetLevel > township.structs.crossroad.level && targetStruct.type !== 'crossroad') return console.log(`Oop, upgrade the crossroad to raise the upgrade cap to get back to this guy.`);
+
+        // console.log(`${thisPlayer.name} wishes to upgrade ${targetStruct.displayName} to level ${targetLevel}.`);
+
+        let constructionCost = {...allTownshipStructs[targetStruct.type].upgradeSpecs[targetLevel].construction};
+        const { grease, wealth: wealthCost } = constructionCost;
+        delete constructionCost.grease;
+        delete constructionCost.wealth;
+        let buildable = true;
+        Object.keys(constructionCost).forEach(reqItemKey => {
+            if (township?.inventory[reqItemKey] < constructionCost[reqItemKey]) buildable = false;
+        });
+        if (township.wealth < wealthCost) buildable = false;
+
+        
+        /*
+            !MHRUPGRADE
+            
+            so we want to add a BUILDING obj to the township.building array
+            {
+                workers: 1,
+                progress: 0,
+                target: 10,
+                lastTick: Date(),
+                projectedFinish: Date(),
+                type: 'build' or 'upgrade',
+                buildTarget: 'township' or 'tile' (or anything else we can later check for),
+                constructionMats: {},
+            }
+
+            ... we'd need a finishBuilding() fxn to figure out how to properly 'conclude' the process and give us the SHINY NEW THING
+        
+        */
+
+        // console.log(buildable ? `Turns out, they could!` : `They just don't meet the costs or reqs, though.`);
+        if (township.gatheringCoords.length + township.building.length + township.refining.length >= township.townstats.actionSlots) return console.log(`Oops. Need to free up some workers.`);
+
+        if (!buildable) {
+            console.log(`Missing something for the upgrade on ${targetStruct.displayName}. Wealth is ${township.wealth} and inventory is `, township.inventory);
+            return console.log(`Hopefully that clarifies what's missing back here?`);
+        } 
+
+        const rightNow = new Date();
+
+        // we're making assumptions right now due to lack of tile upgrade feature(s)
+        // for tiles, we'd have to include additional information, such as wps and worldID
+        // currently 'upgrade' allows +1 level, so we don't reaaaally need to include targetLevel or anything for that
+        const newUpgradeProject = {
+            workers: 1,
+            progress: 0,
+            goal: grease,
+            lastTick: rightNow,
+            projectedFinish: new Date(rightNow + (1000 * 60 * 60 * grease / 10)),
+            type: 'upgrade',
+            buildingAt: 'township',
+            subject: targetStruct.id,
+            constructionMats: {...constructionCost},
+            soulRef: thisPlayer.name
+        }
+
+        Object.keys(constructionCost).forEach(reqItemKey => {
+            township.inventory[reqItemKey] = township.inventory[reqItemKey] - constructionCost[reqItemKey];
+        });
+        township.wealth -= wealthCost;
+
+
+
+        // gotta figure out what we're gonna pass back to the client now that we're all updated... let's ref similar socket actions
+        // also have to add a way to see that 'building is being upgraded!' (OR specialized, for that matter) to struct overview
+        // can do a little building array search to see if we can find anything matching subject === struct.id, ezpz, hopefully
+        // having a little hammer or something would be neat, THUNK THUNK THUNK
+        thisPlayer.township.building.push(newUpgradeProject);
+
+        // HERE: socket to me, baby
+        calcTownship(thisPlayer.township);
 
         calcTownIncome(township);
 
-        // OH! we definitely want constructionCoords, build info, etc. as well... TOWNSTATS know the gatherSlots limit
-        // ADD the current selected coords to this concept
-        let managementData = {
-            wealth: township.wealth,
-            weight: township.weight,
-            townstats: {...township.townstats},
-            gatheringCoords: [...township.gatheringCoords],
-            building: [...township.building],
-            refining: [...township.refining],
-            refineOptions: [...township.refineOptions],
-            mapObj: null,
-            wps: null,
-            inventory: township.inventory
-        };
+        let managementData = fetchManagementData(township);
+
+        socket.emit('township_management_data', managementData);
+
+    });
+
+    socket.on('view_township_management', reqObj => {
+
+        const { soul } = reqObj;
+        const township = allSouls[soul].township;
+
+        if (thisPlayer == null) thisPlayer = allSouls[soul];
+
+        /*
+            
+            TO ADD TO MGMTDATA: 
+            - building options available (curated back here?)
+            allTownshipStructs is an OBJECT; we want to filter through a keys-array of that after we pop out anything with a buildLimit of 1
+                nothing with a buildLimit
+                everything else should be viable atm
+                what do we need to preserve to pass down? 
+                an ARRAY of OBJECTS:
+                { type: '', construction: {}, description: '' }
+            
+
+
+            CONSIDER, here or client:
+            - how to calculate net changes: income minus ongoing refining actions? and how to display most usefully
+
+
+        */
+        // !MHRmanage
+
+        // const buildableStructs = Object.keys(allTownshipStructs).filter(structKey => allTownshipStructs[structKey].baseStats.buildLimit == null).map(structKey => {
+        //     return {type: allTownshipStructs[structKey].baseStats.type, description: allTownshipStructs[structKey].baseStats.description, construction: {...allTownshipStructs[structKey].baseStats.construction}}
+        // });
+
+        calcTownIncome(township);
+
+        let managementData = fetchManagementData(township);
+        
         if (township.worldID != null) {
             managementData.mapObj = allWorlds[township.worldID];
             managementData.wps = township.wps;
@@ -3771,7 +4188,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on('update_management_data', newMgmtData => {
-        // receiving: newMgmtData.newGatheringCoords
         const { newGatheringCoords, newRefining, newBuilding } = newMgmtData;
         // console.log(`Ho there! Backend here! We have received new gathering coords: ${newGatheringCoords}`);
         // so far, so good... now, to IMPLEMENT
@@ -3779,7 +4195,7 @@ io.on('connection', (socket) => {
         thisPlayer.township.refining = [...newRefining];
         thisPlayer.township.building = [...newBuilding];
 
-        console.log(`BEHOLD OUR NEW MANAGEMENT DATA- `, newMgmtData);
+        // console.log(`BEHOLD OUR NEW MANAGEMENT DATA- `, newMgmtData);
 
         // decided to make 'refining' just a list of refining option NAMES, so when we go to check refining status, we use the NAME to grab the option's actual data
 
@@ -3789,19 +4205,7 @@ io.on('connection', (socket) => {
         const township = thisPlayer.township;
         calcTownIncome(township);
 
-        // this is subject to the same need to update as the above version... that is, construction data, etc.
-        let managementData = {
-            wealth: township.wealth,
-            weight: township.weight,
-            townstats: {...township.townstats},
-            gatheringCoords: [...township.gatheringCoords],
-            building: [...township.building],
-            refining: [...township.refining],
-            refineOptions: [...township.refineOptions],
-            mapObj: null,
-            wps: township.wps,
-            inventory: township.inventory
-        };
+        let managementData = fetchManagementData(township);
 
         socket.emit('township_management_data', managementData);
     });
@@ -4166,6 +4570,7 @@ io.on('connection', (socket) => {
 
         brandNewPlayer.level = 1;
         brandNewPlayer.exp = 0;
+        brandNewPlayer.mne = 0;
         brandNewPlayer.entityType = 'player';
         brandNewPlayer.faction = 'zenithican';
 
@@ -4209,31 +4614,6 @@ io.on('connection', (socket) => {
 
         brandNewPlayer.abilityBar = [];
 
-        // HERE: create their 'base' township, join the socket for it
-        // currently, we're using completely static values, but random flavor should come in shortly
-        // currently, bare bones, no structs, npcs, etc. ... consult above for setting those up in a bit
-        /*
-        
-        Structs to add:
-        - a specific struct for their starting class so they can train it and pursue class-specific stuff
-            - hm, what if class struct exerted 'influence' based on its level? ... then stuff like general store can 'sense' that influence and stock accordingly
-            - then this same influence could hit npc gen rates, as well
-        - a basic trading post
-        - town perimeter (eventually wall/bulwark/gate)
-        
-
-
-
-        PitStruct, TradePostStruct, InnStruct, StorageStruct, BuildStruct, GatherStruct, TownGateStruct, NexusStruct, WellStruct
-        known townstats: {
-            woodIncome, oreIncome, stoneIncome, gameIncome, waterIncome, vegIncome,
-            woodAmp, oreAmp, stoneAmp, gameAmp, waterAmp, vegAmp,
-            gatherSlots, buildSlots, traffic, commerce
-        }
-        ... so we need to set the township "starter stats" upon init, and then loop through all the buildings and add their townstat keys (all numbers!) to our starter numbers        
-
-
-        */
         let brandNewTownship = {
             nickname: `${brandNewPlayer.name}'s Township`,
             soulRef: `${brandNewPlayer.name}`,
@@ -4246,18 +4626,46 @@ io.on('connection', (socket) => {
             wares: [],
             weight: 0,
             interactions: ['nexus', 'gate'],
-            wealth: 0,
+            wealth: 100,
             inventory: {
-                wood: 15, stone: 15, ore: 15, game: 15, water: 15, veg: 15,
+                wood: 20, stone: 20, ore: 20, game: 20, water: 20, veg: 20,
                 timber: 0, chalkstone: 0, iron: 0, copper: 0,
                 hardwood: 0, granite: 0, steel: 0, silver: 0,
-                leather: 0, bone: 0, meat: 0, beer: 0
+                leather: 10, food: 10, beer: 0
             },
             townstats: {
                 woodIncome: 0, oreIncome: 0, stoneIncome: 0, gameIncome: 0, waterIncome: 0, vegIncome: 0,
-                woodAmp: 1, oreAmp: 1, stoneAmp: 1, gameAmp: 1, waterAmp: 1, vegAmp: 1, 
-                actionSlots: 0, traffic: 0, commerce: 0, storage: 0
+                woodAmp: 1, oreAmp: 1, stoneAmp: 1, gameAmp: 1, waterAmp: 1, vegAmp: 1,
+                timberAmp: 1, ironAmp: 1, copperAmp: 1, chalkstoneAmp: 1, foodAmp: 1,
+                actionSlots: 0, traffic: 0, commerce: 0, storage: 0, buildCapacity: 1, upgradeCap: 2
             },
+            tileIncomes: {
+                'j': {woodIncome: 2, gameIncome: 1, vegIncome: 1},
+                'w': {woodIncome: 2, gameIncome: 1},
+                't': {woodIncome: 2, gameIncome: 1},
+            
+                's': {woodIncome: 1, waterIncome: 1, vegIncome: 2},
+                'm': {waterIncome: 1, vegIncome: 2},
+                'b': {waterIncome: 1, vegIncome: 2},
+            
+                'v': {woodIncome: 1, gameIncome: 1, vegIncome: 1},
+                'p': {gameIncome: 1, vegIncome: 1},
+                'u': {gameIncome: 1},
+            
+                'n': {oreIncome: 1},
+                'd': {oreIncome: 1, stoneIncome: 1},
+                'a': {oreIncome: 1},
+            
+                'c': {waterIncome: 2, gameIncome: 1},
+                'l': {waterIncome: 2, gameIncome: 1},
+                'f': {waterIncome: 1},
+                'o': {gameIncome: 1},
+            
+                'g': {oreIncome: 1, stoneIncome: 1, vegIncome: 1},
+                'h': {oreIncome: 1, stoneIncome: 1},
+                'r': {oreIncome: 1, stoneIncome: 1},
+                'M': {oreIncome: 2, stoneIncome: 2},
+            },            
             constructionProjects: {}, // anywhere actionSlots are deployed for construction purposes!
             icon: {},
             aesthetic: {}, // for changing look of the chatroom/township visit around, ultimately
@@ -4492,8 +4900,6 @@ io.on('connection', (socket) => {
 
         equip(brandNewPlayer, new Item(itemBlueprints.rags));
 
-        // oh right, MUNNY... we'll go with just a number and 'carte blanche' currency for now
-        // we'll start with 500 just for testing/spending purposes
         brandNewPlayer.wallet = 50;
         
         // HERE: init flux? probably an object with {current: 0, max: 99, lastTick: Date()}, and some mechanism of calculating restoration (every 5 min seems fine :P)
@@ -4530,16 +4936,15 @@ io.on('connection', (socket) => {
         */
         brandNewPlayer.history = {
             achievements: {},
-            expGained: 0,
+            mneGained: 0,
+            mneSpent: 0,
+            mneMax: 0,
+            fluxSpent: 0,
             mpSpent: 0,
             pipsSpent: 0,
             battlesWon: 0,
             battlesLost: 0,
             battlesFled: 0,
-            townshipsVisited: 0,
-            walletGained: 0,
-            walletSpent: 0,
-            walletMax: 0, // awkward way of saying highest amount of wallet at any given time :P
             spellsCast: 0,
             abilitiesUsed: 0,
             damageDealt: 0,
@@ -4549,8 +4954,6 @@ io.on('connection', (socket) => {
         // the power of crystalline memory stores objects, NPC's, maybe even townships in perpetuity under the right conditions
         brandNewPlayer.memories = {};
 
-        // console.log(`Hi! Here's the current working model for brandNewPlayer: `, brandNewPlayer);
-
         const newPlayerToken = craftAccessToken(brandNewPlayer.name);
         //
         socket.join(brandNewPlayer.name);
@@ -4558,15 +4961,35 @@ io.on('connection', (socket) => {
         
         // let newNexusID = generateRandomID('nexus');
         // let newGateID = generateRandomID('towngate');
+        /*
+        
+        'crossroad': {
+            baseStats: {
+                type: 'crossroad', displayName: 'Crossroads Cabin', id: null, soulRef: null, nickname: `The Crossroads`, level: 1, hp: 2000, interactions: ['nexus'], icon: null, weight: 0,
+                townstats: {traffic: 1, commerce: 1, waterIncome: 2},
+                description: `A lovely place. The de facto seat of power of the township. It has a wet watery well, and is the entry and exit point for the township.`, 
+                refineOptions: [
+                    {name: 'Brew Beer', resource: 'water', from: {veg: 2, water: 2}, into: {beer: 2}, time: 60},
+                    {name: 'Prepare Vegetables', resource: 'veg', from: {veg: 4, water: 2}, into: {food: 2}, time: 60}
+                ],
+                buildLimit: 1, npcSlots: null, construction: {opalite: 25, timber: 75, chalkstone: 75}
+            },        
+        */
         allSouls[brandNewPlayer.name].structs = {};
         // PitStruct, TradePostStruct, InnStruct, StorageStruct, BuildStruct, GatherStruct, TownGateStruct, NexusStruct, WellStruct
         // let structsToInit = [new NexusStruct(), new TownGateStruct(), new WellStruct(), new GatherStruct(), new BuildStruct(), new StorageStruct(), new InnStruct(), new TradePostStruct(), new PitStruct()];
-        let structsToInit = [new CrossroadStruct(), new TownGateStruct(), new TradehallStruct(), new SpireStruct()];
+        // let structsToInit = [new CrossroadStruct(), new TownGateStruct(), new TradehallStruct(), new SpireStruct()];
+        const starterStructs = ['crossroad', 'tradehall', 'mineshaft', 'town wall'];
         //!MHRbrand
-        structsToInit.forEach(classyStruct => {
-            // let's see if this does the trick!
-            classyStruct.init(allSouls[brandNewPlayer.name].township);
+        // structsToInit.forEach(classyStruct => {
+        //     // let's see if this does the trick!
+        //     classyStruct.init(allSouls[brandNewPlayer.name].township);
+        // });
+        starterStructs.forEach(initialStructKey => {
+            // console.log(`I wish to make a new struct out of this: `, allTownshipStructs[initialStructKey].baseStats);
+            let newStruct = new Struct(allTownshipStructs[initialStructKey].baseStats).init(allSouls[brandNewPlayer.name].township);
         });
+        // return;
 
         // HERE: init their class struct! ... and their tradepost stuff?
 
@@ -4905,7 +5328,7 @@ GameState.findOne({ dateKey: todaysDateKey })
             console.log(`STANDARD LOAD - same-day`);
             // game-loading! - situation of initial day-of loading
             const gameToLoad = JSON.parse(JSON.stringify(searchResult));
-            console.log(`Same-day load gameToLoad looks like this: `, gameToLoad);
+            // console.log(`Same-day load gameToLoad looks like this: `, gameToLoad);
             loadGame(gameToLoad);
 
             // HERE: create some sort of 'version check' for Zenithica where we can check to make sure it has all the shops/npcs/event hooks we want
@@ -4923,7 +5346,7 @@ function loadGame(gameObject) {
     allChatventures = gameObject.allChatventures;
     allSecrets = gameObject.allSecrets;
     allWorlds = gameObject.allWorlds;
-    console.log(`Hi! Loading game object: `, gameObject);
+    // console.log(`Hi! Loading game object: `, gameObject);
 
     if (allSouls['Zenithica'].structs == null) {
         console.log(`Oh, dear. Zenithica is bare. Can't let that stand. At least have a Nexus, Z!`);
@@ -5768,19 +6191,108 @@ function weightChoice(...choices) {
 */
 
 
+function finishBuilding(project, index) {
+    /*
+    
+        THIS: fxn is called when a 'township.building' project is completed
+        - so, it needs to be responsive to building AND upgrading in both township and tiles, at minimum
+        - so we'll need a reference to the SOUL for building/upgrading @ township
+        - we'll need the wps/worldID for same @ tiles
+        ... can do a 'universal' obj in project or just the ones we'll need? eh, let's do 'ones we'll need' since we can split and check
+
+            const newUpgradeProject = {
+            workers: 1,
+            progress: 0,
+            goal: grease,
+            lastTick: rightNow,
+            projectedFinish: new Date(rightNow + (1000 * 60 * 60 * grease / 10)),
+            type: 'upgrade',
+            buildingAt: 'township',
+            subject: targetStruct.id,
+            constructionMats: {...constructionCost},
+            soulRef: name
+        }
+
+        
+    
+    */
+
+    switch (project.buildingAt) {
+        case 'township': {
+            const township = allSouls[project.soulRef].township;
+            if (project.type === 'build') {
+                
+            }
+            if (project.type === 'upgrade') {
+                // the first scenario!
+                let upgradingStruct = township.structs[project.subject];
+                console.log(`Building is UPGRADING! Before: `, upgradingStruct);
+                // NOTE: this method assumes we're defining each LEVEL in upgradeSpecs as an almost wholly standalone entity that includes all boosts from lower levels
+                township.structs[project.subject] = {...upgradingStruct, ...allTownshipStructs[upgradingStruct.type].upgradeSpecs[upgradingStruct.level + 1]};
+                console.log(`Now the actual township: `, township.structs[project.subject])
+                return township.building[index] = null;
+                // return township.building = township.building.filter(projObj => projObj.subject !== project.subject);
+            }
+            break;
+        }
+        case 'tile': {
+            if (project.type === 'build') {
+                
+            }
+            if (project.type === 'upgrade') {
+
+            }
+            break;
+        }
+        default: break;
+    }
+
+    // DON'T FORGET: remove the project from the soulRef's building array once we're all set, above or here, wherever makes the most sense
+}
+
 function calcTownship(townshipRef) {
     // console.log(`Township's townstats BEFORE: `, townshipRef.townstats);
-
     // resetti spaghetti
+    const townLevel = townshipRef.structs.crossroad.level;
     townshipRef.townstats = {
         woodIncome: 0, oreIncome: 0, stoneIncome: 0, gameIncome: 0, waterIncome: 0, vegIncome: 0,
-        woodAmp: 1, oreAmp: 1, stoneAmp: 1, gameAmp: 1, waterAmp: 1, vegAmp: 1, 
-        actionSlots: 0, traffic: 0, commerce: 0, storage: 0
+        woodAmp: 1, oreAmp: 1, stoneAmp: 1, gameAmp: 1, waterAmp: 1, vegAmp: 1,
+        timberAmp: 1, ironAmp: 1, copperAmp: 1, chalkstoneAmp: 1, foodAmp: 1,
+        hardwoodAmp: 1, steelAmp: 1, silverAmp: 1, marbleAmp: 1,
+        actionSlots: townLevel, traffic: 0, commerce: 0, storage: 0, buildCapacity: townLevel, upgradeCap: townLevel
     };
     townshipRef.refineOptions = [];
     townshipRef.weight = 0;
     townshipRef.interactions = [];
+    townshipRef.tileIncomes = {
+        'j': {woodIncome: 2, gameIncome: 1, vegIncome: 1},
+        'w': {woodIncome: 2, gameIncome: 1},
+        't': {woodIncome: 2, gameIncome: 1},
+    
+        's': {woodIncome: 1, waterIncome: 1, vegIncome: 2},
+        'm': {waterIncome: 1, vegIncome: 2},
+        'b': {waterIncome: 1, vegIncome: 2},
+    
+        'v': {woodIncome: 1, gameIncome: 1, vegIncome: 1},
+        'p': {gameIncome: 1, vegIncome: 1},
+        'u': {gameIncome: 1},
+    
+        'n': {oreIncome: 1},
+        'd': {oreIncome: 1, stoneIncome: 1},
+        'a': {oreIncome: 1},
+    
+        'c': {waterIncome: 2, gameIncome: 1},
+        'l': {waterIncome: 2, gameIncome: 1},
+        'f': {waterIncome: 1},
+        'o': {gameIncome: 1},
+    
+        'g': {oreIncome: 1, stoneIncome: 1, vegIncome: 1},
+        'h': {oreIncome: 1, stoneIncome: 1},
+        'r': {oreIncome: 1, stoneIncome: 1},
+        'M': {oreIncome: 2, stoneIncome: 2},
+    };
 
+    // ADD: tileIncomes, where applicable
     Object.keys(townshipRef.structs).forEach(structKey => {
         townshipRef.weight += townshipRef.structs[structKey].weight;
         if (townshipRef.structs[structKey].townstats != null) {
@@ -5799,58 +6311,32 @@ function calcTownship(townshipRef) {
 
     if (townshipRef.worldID != null) {
         const refMap = allWorlds[townshipRef.worldID].map;
-        let homeTileIncome = calcTileIncome(refMap[townshipRef.wps[0]][townshipRef.wps[1]]);
+        // let homeTileIncome = calcTileIncome(refMap[townshipRef.wps[0]][townshipRef.wps[1]]);
+        let homeTileIncome = townshipRef.tileIncomes[refMap[townshipRef.wps[0]][townshipRef.wps[1]][0]];
         Object.keys(homeTileIncome).forEach(incomeKey => townshipRef.townstats[incomeKey] += homeTileIncome[incomeKey]);
+
+
         if (townshipRef.gatheringCoords.length > 0) {
             townshipRef.gatheringCoords.forEach(gatherCoord => {
-                let thisTileIncome = calcTileIncome(refMap[gatherCoord[0]][gatherCoord[1]]);
+                // let thisTileIncome = calcTileIncome(refMap[gatherCoord[0]][gatherCoord[1]]);
+                let thisTileIncome = townshipRef.tileIncomes[refMap[gatherCoord[0]][gatherCoord[1]][0]];
                 Object.keys(thisTileIncome).forEach(incomeKey => townshipRef.townstats[incomeKey] += thisTileIncome[incomeKey]);
             })
         }
     }
 
-    console.log(`A post-init township `, townshipRef);
+    // console.log(`A post-init township `, townshipRef);
     // console.log(`Also, we should see that new WEIGHT starting out: ${townshipRef.weight}`);
 }
 
 function calcTownIncome(townshipRef) {
     // REFin' it up again
-    /*
-    
-        townstats: {
-        woodIncome: 0, oreIncome: 0, stoneIncome: 0, gameIncome: 0, waterIncome: 0, vegIncome: 0,
-        woodAmp: 1, oreAmp: 1, stoneAmp: 1, gameAmp: 1, waterAmp: 1, vegAmp: 1, 
-        actionSlots: 0, traffic: 0, commerce: 0, storage: 0
-        }
-        wealth: 0,
-        inventory: {
-            wood: 15, stone: 15, ore: 15, game: 0, water: 15, veg: 15,
-            hardwood: 0, 
-            timber: 0, chalkstone: 0, iron: 0, 
-            leather: 10, bone: 10, meat: 10, 
-        },
-        lastTick: a Date()
-
-
-
-        ... and should this include a general update such as building progress, ooooooor hrmmm
-            - for in-township stuff? absolutely! for world stuff? mmmmaybe not?
-
-        
-
-
-        ... townIncome is definitely inclusive of REFINING income, right? 
-        RIGHT!
-        so, townshipRef.refining is an array of refining NAMES... use 
-    
-    */
-
-    
-    
+    // THIS: basically, not just income, but anything that's tick-centric, such as building
 
     const rightNow = new Date();
     const hoursElapsed = (rightNow - new Date(townshipRef.lastTick)) / 3600000;
-    if (hoursElapsed < (1 / 12)) return console.log(`Eh, it hasn't even been five minutes! Let's wait before calculating income.`);
+    console.log(`Calculating income for ${townshipRef.soulRef}'s township. It's been ${hoursElapsed} hours!`);
+    // if (hoursElapsed < (1 / 12)) return console.log(`Eh, it hasn't even been five minutes! Let's wait before calculating income.`);
 
 
     let woodIncome = townshipRef.townstats.woodIncome * townshipRef.townstats.woodAmp * hoursElapsed;
@@ -5878,17 +6364,19 @@ function calcTownIncome(townshipRef) {
     townshipRef.inventory.veg += vegIncome;
 
     // plan to do more with this later, but for now, commerce = straight $$ :P
-    // maybe times... fiddy? for now? sure!
-    townshipRef.wealth += townshipRef.townstats.commerce * hoursElapsed * 50;
+    // commerce * 5 for now, and later maybe further amped by traffic
+    // starting income is therefore 15/hr, so bear that in mind for costs
+    //  ... though! we can also engage in some TRADE with Zenithica and others to bolster that, which would be super neat
+    townshipRef.wealth += townshipRef.townstats.commerce * hoursElapsed * 5;
 
     if (townshipRef.refining.length > 0) {
         const minutesElapsed = Math.floor(hoursElapsed * 60);
         
 
         townshipRef.refining.forEach(refiningKey => {
-            // this shouuuuuld work?
+            // changed to remove Math.floor() on times to run, so we avoid situations where checking on refining before an hour effectively resets refining progress
             const recipeObj = townshipRef.refineOptions.filter(refRecipe => refRecipe.name === refiningKey)[0];
-            let maxTimesToRun = Math.floor(minutesElapsed / recipeObj.time);
+            let maxTimesToRun = minutesElapsed / recipeObj.time;
             let timesToRun = 0;
             let costs = {};
             Object.keys(recipeObj.from).forEach(reqMat => {
@@ -5896,21 +6384,71 @@ function calcTownIncome(townshipRef) {
                 timesToRun = Math.floor(townshipRef.inventory[reqMat] / costs[reqMat]);
                 if (timesToRun > maxTimesToRun) timesToRun = maxTimesToRun;
             });
-            // console.log(`Looks like we're looping through ${timesToRun} times on this refining mission!`);
+            console.log(`Looks like we're looping through ${timesToRun} out of a initial max of ${maxTimesToRun} times while refining ${refiningKey}!`);
             // so we SHOULD have a valid timesToRun at the end of this to... redouble our efforts, so to speak
             // basically we want to go through and decrement by timesToRun * cost for each inventory item and then increment by into via the same amt
             Object.keys(recipeObj.from).forEach(reqMat => {
                 townshipRef.inventory[reqMat] -= timesToRun * recipeObj.from[reqMat];
             });
             Object.keys(recipeObj.into).forEach(resMat => {
-                townshipRef.inventory[resMat] += timesToRun * recipeObj.into[resMat];
+                let ampKey = `${resMat}Amp`;
+                const ampAmount = townshipRef?.townstats[ampKey] || 1;
+                if (townshipRef.inventory[resMat] == null) townshipRef.inventory[resMat] = 0;
+                townshipRef.inventory[resMat] += timesToRun * recipeObj.into[resMat] * ampAmount;
                 // console.log(`Adding ${resMat} to the user's stock! Brings us up to a total of ${townshipRef.inventory[resMat]}.`);
             });
 
         });
-
-        // what are the odds everything above ends up working properly? :P
         
+    }
+
+    if (townshipRef.building.length > 0) {
+        // Let's do some building and upgrading, but actually!
+        /*
+        
+        const projObj = {
+            workers: 1,
+            progress: 0,
+            goal: grease,
+            lastTick: rightNow,
+            projectedFinish: new Date(rightNow + (1000 * 60 * 60 * grease / 10)),
+            type: 'upgrade',
+            buildingAt: 'township',
+            subject: targetStruct.id,
+            constructionMats: {...constructionCost},
+            soulRef: name
+        }        
+        
+        */
+
+        let jobsDone = 0;
+
+        // actually, we have a rightNow in scope already in this fxn, so making a new one is a little redundant at best
+        // const rightNow = new Date();
+        townshipRef.building.forEach((project, index) => {
+            project.progress = project.workers * hoursElapsed;
+            project.lastTick = rightNow;
+            if (project.progress > project.goal) {
+                finishBuilding(project, index);
+                jobsDone += 1;
+            }
+            // HM... finishBuilding actually currently changes the building array itself, which may mess with this 'outer' loopage
+            // proposed solution: remove that change, instead just change the projObj to null inside the array in that fxn, and then out here do a quick null-removing filter, DONE
+        });
+
+        if (jobsDone > 0) {
+            townshipRef.building = townshipRef.building.filter(buildObj => buildObj != null);
+            calcTownship(townshipRef);
+            let managementData = fetchManagementData(townshipRef);
+            // removing the socket for now; every instance of this fxn already immediately does precisely this anyway
+            // alternatively, since we would never use this fxn without sharing the data if applicable, we can scoot the socket feedback here instead
+            // io.to(townshipRef.soulRef).emit('township_management_data', managementData);
+        }
+        
+
+        // HERE: probably a socket message/data to let 'em know their buildings are done?
+        // MESSAGE would be great, and we should add it ASAP
+    
     }
 
 
@@ -5994,6 +6532,39 @@ function createLocationData(soulName) {
         structs: township.structs,
         interactions: township.interactions
     }
+}
+
+
+// mines, towers, etc.
+const allWorldStructs = {}
+
+
+function fetchManagementData(township) {
+    let managementData = {
+        wealth: township.wealth,
+        weight: township.weight,
+        structs: township.structs,
+        townstats: {...township.townstats},
+        gatheringCoords: [...township.gatheringCoords],
+        building: [...township.building],
+        refining: [...township.refining],
+        refineOptions: [...township.refineOptions],
+        mapObj: null,
+        wps: township.wps,
+        inventory: township.inventory,
+        buildableStructs: Object.keys(allTownshipStructs).filter(structKey => allTownshipStructs[structKey].baseStats.buildLimit == null).map(structKey => {
+            return {type: allTownshipStructs[structKey].baseStats.type, displayName: allTownshipStructs[structKey].baseStats.displayName, description: allTownshipStructs[structKey].baseStats.description, construction: {...allTownshipStructs[structKey].baseStats.construction}}
+        }),
+        potentialStructSpecs: {},
+        structUpgradeData: {}
+    };
+    Object.keys(township.structs).forEach(structID => {
+        const structType = township.structs[structID].type;
+        const structLevel = township.structs[structID].level;
+        managementData.potentialStructSpecs[structID] = {...allTownshipStructs[structType].specializations};
+        managementData.structUpgradeData[structID] = {...allTownshipStructs[structType].upgradeSpecs[structLevel + 1]};
+    });
+    return managementData;
 }
 
 /*
