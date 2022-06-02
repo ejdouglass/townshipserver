@@ -316,11 +316,11 @@ const allTownshipStructs = {
         },
         upgradeSpecs: [
             null, null,
-            {level: 2, hp: 2500, displayName: 'Wayfarer Inn', construction: {wood: 0, stone: 0, leather: 0, ore: 0, wealth: 0, grease: 0}},
-            {level: 3, hp: 3000, displayName: 'Travelers Lodge', construction: {timber: 30, chalkstone: 30, iron: 30, copper: 20, wealth: 150, food: 15, grease: 30}},
-            {level: 4, hp: 3500, displayName: 'Travelers Lodge', construction: {timber: 75, chalkstone: 75, iron: 10, copper: 10, wealth: 350, grease: 60}},
-            {level: 5, hp: 4250, displayName: 'Crossroads Hall', construction: {hardwood: 40, marble: 40, pelt: 25, steel: 35, silver: 25, wealth: 1000, grease: 120}},
-            {level: 6, hp: 5000, displayName: 'Crossroads Hall', construction: {opalite: 9999, grease: 9999}},
+            {level: 2, hp: 2500, displayName: `Crossroads Inn`, construction: {wood: 10, stone: 10, leather: 10, ore: 10, wealth: 50, grease: 2.5}},
+            {level: 3, hp: 3000, displayName: 'Crossroads Lodge', construction: {wood: 30, stone: 30, iron: 10, wealth: 150, food: 15, grease: 10}},
+            {level: 4, hp: 3500, displayName: 'Crossroads Hall', construction: {timber: 25, chalkstone: 25, iron: 30, copper: 20, wealth: 350, grease: 60}},
+            {level: 5, hp: 4250, displayName: 'Crossroads Center', construction: {timber: 40, chalkstone: 40, steel: 35, silver: 25, wealth: 1000, grease: 120}},
+            // {level: 6, hp: 5000, displayName: 'Crossroads Hall', construction: {opalite: 9999, grease: 9999}},
         ],
         specializations: {
             'Town Well Lv.2': {name: `Town Well Lv.2`, townstats: {waterIncome: 1}, cost: {grease: 3, wealth: 50, timber: 10, chalkstone: 10, iron: 10, copper: 5}, reqs: {}, description: `Renovates the central well of the township Crossroads, providing +1 water per hour.`},
@@ -331,9 +331,9 @@ const allTownshipStructs = {
     },
     'tradehall': {
         baseStats: {
-            type: 'tradehall', displayName: 'Tradecraft Tent', id: null, soulRef: null, nickname: `The Tradehall`, level: 1, hp: 500, interactions: ['shop'], icon: null, weight: 0,
+            type: 'tradehall', displayName: 'Tradecraft Yard', id: null, soulRef: null, nickname: `The Tradehall`, level: 1, hp: 500, interactions: ['shop'], icon: null, weight: 0,
             townstats: {actionSlots: 2, commerce: 2, storage: 500},
-            description: `An expansive tent, held up by massive tree trunks, under which rests all manner of equipment for gathering, refining, and crafting. A massive collection of crates surrounds the perimeter, housing the bulk of the township's inventory.`, 
+            description: `An expansive collection of leather sheets, held up by massive tree trunks, under which rests all manner of equipment for gathering, refining, and crafting. A massive collection of crates surrounds the perimeter, housing the bulk of the township's inventory.`, 
             refineOptions: [
                 {name: 'Butcher Game', resource: 'game', from: {game: 4, water: 2}, into: {food: 2, leather: 2}, time: 60},
                 {name: 'Cut Timber', resource: 'wood', from: {wood: 4}, into: {timber: 2}, time: 60},
@@ -345,7 +345,10 @@ const allTownshipStructs = {
         },
         upgradeSpecs: [
             null, null, 
-            {level: 2, hp: 800, displayName: 'Tradecraft Tent', construction: {dreams: 100, grease: 10}},
+            {level: 2, hp: 800, displayName: 'Tradecraft Tent', townstats: {storage: 700}, construction: {leather: 10, wood: 5, stone: 5, wealth: 25, grease: 2.5}},
+            {level: 3, hp: 1200, displayName: 'Tradecraft Cabin', townstats: {storage: 900}, construction: {wood: 20, stone: 10, iron: 10, copper: 10, wealth: 100, grease: 10}},
+            {level: 4, hp: 1500, displayName: 'Tradecraft Hall', townstats: {storage: 1100}, construction: {timber: 15, chalkstone: 10, wealth: 250, grease: 60}},
+            {level: 5, hp: 2000, displayName: 'Tradecraft Guild', townstats: {storage: 1500}, construction: {timber: 25, chalkstone: 25, wealth: 600, grease: 120}},
         ],
         specializations: {
             'Expand Storage': {name: `Expand Storage`, townstats: {storage: 500}, cost: {wealth: 250, grease: 2, stone: 20, wood: 20}, reqs: {}, description: ``},
@@ -354,14 +357,17 @@ const allTownshipStructs = {
     },
     'mineshaft': {
         baseStats: {
-            type: 'mineshaft', displayName: 'Mineshaft Gatehouse', id: null, soulRef: null, nickname: `The Mineshaft`, level: 1, hp: 1000, interactions: null, icon: null, weight: 0,
+            type: 'mineshaft', displayName: 'Mineshaft Guardhut', id: null, soulRef: null, nickname: `The Mineshaft`, level: 1, hp: 1000, interactions: null, icon: null, weight: 0,
             townstats: {oreIncome: 1, stoneIncome: 1},
             description: `A simple wooden gatehouse stands over and encloses what is essentially a pit, dug in careful serpentine tunnels under the township to procure the riches of the earth below. This gatehouse also serves as a storeroom, housing abundant mining and prospecting tools in various states of repair.`, 
             buildLimit: 1, npcSlots: null, construction: {wood: 40, stone: 20, iron: 10}
         },
         upgradeSpecs: [
             null, null,
-            {level: 2, hp: 1300, displayName: 'Mineshaft Gatehouse', construction: {dreams: 100, grease: 10}}
+            {level: 2, hp: 1300, displayName: 'Mineshaft Guardhouse', townstats: {oreIncome: 1.25, stoneIncome: 1.25}, construction: {ore: 10, stone: 10, wood: 10, wealth: 25, grease: 2.5}},
+            {level: 3, hp: 1600, displayName: 'Mineshaft Guardtower', townstats: {oreIncome: 1.5, stoneIncome: 1.5}, construction: {wood: 20, stone: 20, wealth: 100, grease: 10}},
+            {level: 4, hp: 2000, displayName: 'Mineshaft Greytower', townstats: {oreIncome: 1.75, stoneIncome: 1.75}, construction: {wealth: 250, grease: 60}},
+            {level: 5, hp: 2400, displayName: 'Mineshaft Spire',townstats: {oreIncome: 2, stoneIncome: 2},  construction: {timber: 25, chalkstone: 25, wealth: 600, grease: 120}}
         ],
         specializations: {
             'Perpendicular Prospecting': {description: ``, name: 'Perpendicular Prospecting', townstats: {oreIncome: 0.5}, cost: {grease: 4, wealth: 50}, reqs: {}},
@@ -371,13 +377,16 @@ const allTownshipStructs = {
     },
     'town wall': {
         baseStats: {
-            type: 'town wall', displayName: 'Lowstone Wall', id: null, soulRef: null, nickname: `The Town Wall`, level: 1, hp: 2500, interactions: ['gate'], icon: null, weight: 0,
-            description: `The wall that surrounds and protects the town. Could do with a moat, perhaps.`, 
-            buildLimit: 1, npcSlots: null, construction: {timber: 150, chalkstone: 150}
+            type: 'town wall', displayName: 'Lowstone Perimeter', id: null, soulRef: null, nickname: `The Town Wall`, level: 1, hp: 2500, interactions: ['gate'], icon: null, weight: 0,
+            description: `A simple township perimeter of wood reinforced with sections of cobbled stone. It provides some theoretical defense against incursion, dissuading small roving bands of troublemakers, but it certainly wouldn't stand up to any serious assault.`, 
+            buildLimit: 1, npcSlots: null, construction: {timber: 15, chalkstone: 15}
         },
         upgradeSpecs: [
             null, null, 
-            {level: 2, displayName: 'Lowstone Wall', hp: 3000, construction: {dreams: 100, grease: 10}}
+            {level: 2, displayName: 'Gated Perimeter', hp: 3000, construction: {wood: 20, stone: 20, wealth: 25, grease: 2.5}},
+            {level: 3, displayName: 'Lowstone Wall', hp: 3500, construction: {wood: 35, stone: 35, iron: 10, wealth: 100, grease: 10}},
+            {level: 4, displayName: 'Chalkstone Wall', hp: 4000, construction: {timber: 20, chalkstone: 20, iron: 20, wealth: 250, grease: 60}},
+            {level: 5, displayName: 'Township Bulwark', hp: 5000, construction: {timber: 50, chalkstone: 50, iron: 50, copper: 25, wealth: 600, grease: 120}},
         ],
         specializations: {
             'Nada': {name: 'Nada'}
@@ -385,30 +394,30 @@ const allTownshipStructs = {
     },
     'smithy': {
         baseStats: {
-            type: 'smithy', displayName: 'Smithy Hut', id: null, soulRef: null, nickname: `Smithy`, level: 1, hp: 1250, interactions: null, icon: null, weight: 1,
-            townstats: {ironAmp: 0.2, copperAmp: 0.2},
+            type: 'smithy', displayName: 'Smithy Shack', id: null, soulRef: null, nickname: `Smithy`, level: 1, hp: 1250, interactions: null, icon: null, weight: 1,
+            townstats: {ironAmp: 0.3, copperAmp: 0.3},
             description: `A minimalist hut containing all the rudimentary tools and spaces for metalworking, filled with an ever-present oppressive heat mixed with the scent of steel and sweat. Enhances the township's ability to process ore into useful metals, unlocks higher ore refining options, and can develop the ability to sell better metal weapons and armor.`, 
-            buildLimit: null, npcSlots: null, construction: {wood: 10, stone: 20, ore: 5, grease: 0.25},
+            buildLimit: null, npcSlots: null, construction: {wood: 5, stone: 10, ore: 5, wealth: 10, grease: 0.8},
             wares: []
         },
         upgradeSpecs: [
             null, null, 
-            {displayName: `Smithy Hut`, townstats: {ironAmp: 0.25, copperAmp: 0.25}, level: 2, hp: 1500, construction: {wood: 35, stone: 35, ore: 15, grease: 2}, description: ``},
-            {displayName: `Forge`, townstats: {ironAmp: 0.3, copperAmp: 0.3, steelAmp: 0.15, silverAmp: 0.15}, level: 3, hp: 2000, construction: {timber: 25, chalkstone: 25, iron: 20, grease: 12}, description: ``},
-            {displayName: `Forge`, townstats: {ironAmp: 0.35, copperAmp: 0.35, steelAmp: 0.2, silverAmp: 0.2}, level: 4, hp: 2500, construction: {timber: 40, chalkstone: 40, steel: 10, copper: 20, grease: 16}, description: ``},
-            {displayName: `Smithing Hall`, townstats: {ironAmp: 0.4, copperAmp: 0.4, steelAmp: 0.25, silverAmp: 0.25}, level: 5, hp: 3200, construction: {hardwood: 35, marble: 35, steel: 30, grease: 20}, description: ``},
+            {displayName: `Smithy Hut`, townstats: {ironAmp: 0.35, copperAmp: 0.35}, level: 2, hp: 1500, construction: {wood: 15, stone: 25, ore: 15, wealth: 25, grease: 2.5}, description: ``},
+            {displayName: `Smithy Cabin`, townstats: {ironAmp: 0.4, copperAmp: 0.4, steelAmp: 0.15, silverAmp: 0.15}, level: 3, hp: 2000, construction: {wood: 25, stone: 40, iron: 20, wealth: 100, grease: 10}, description: ``},
+            {displayName: `Forge`, townstats: {ironAmp: 0.45, copperAmp: 0.45, steelAmp: 0.2, silverAmp: 0.2}, level: 4, hp: 2500, construction: {timber: 20, chalkstone: 25, steel: 10, copper: 20, wealth: 250, grease: 60}, description: ``},
+            {displayName: `Smithing Hall`, townstats: {ironAmp: 0.5, copperAmp: 0.5, steelAmp: 0.25, silverAmp: 0.25}, level: 5, hp: 3200, construction: {timber: 25, chalkstone: 40, steel: 30, wealth: 600, grease: 120}, description: ``},
         ],
         specializations: {
             'Iron Weaponsmithing': {name: 'Iron Weaponsmithing', wares: [], cost: {}, reqs: {}, description: ``},
             'Fundamental Armorsmithing': {name: 'Fundamental Armorsmithing', wares: [], cost: {}, reqs: {}, description: ``},
-            'Improve Iron Smelting': {name: 'Improve Iron Smelting', townstats: {ironAmp: 0.25}, cost: {}, reqs: {}, description: ``},
-            'Improve Copper Smelting': {name: 'Improve Copper Smelting', townstats: {copperAmp: 0.25}, cost: {}, reqs: {}, description: ``},
+            'Improved Iron Smelting': {name: 'Improve Iron Smelting', townstats: {ironAmp: 0.25}, cost: {}, reqs: {}, description: ``},
+            'Improved Copper Smelting': {name: 'Improve Copper Smelting', townstats: {copperAmp: 0.25}, cost: {}, reqs: {}, description: ``},
         }
     },
     'hunter': {
         baseStats: {
-            type: 'hunter', displayName: 'Hunting Den', id: null, soulRef: null, nickname: `Huntin' Den`, level: 1, hp: 750, interactions: null, icon: null, weight: 1,
-            townstats: {gameAmp: 0.2, vegAmp: 0.2},
+            type: 'hunter', displayName: 'Hunting Hut', id: null, soulRef: null, nickname: `Huntin' Den`, level: 1, hp: 750, interactions: null, icon: null, weight: 1,
+            townstats: {gameAmp: 0.3, vegAmp: 0.3},
             tileIncomes: {
                 'v': {gameIncome: 0.5, vegIncome: 0.5},
                 'p': {gameIncome: 0.5, vegIncome: 0.5},
@@ -418,15 +427,15 @@ const allTownshipStructs = {
                 't': {gameIncome: 0.5, vegIncome: 0.5},
             },
             description: `A small and rustic building housing various tools of hunting, gathering, tracking, and leatherworking. Increases all township game and vegetation income due to increased knowledge of animal and plant processing, and provides a good boost to the township's ability to gather from flatlands and forests.`, 
-            buildLimit: null, npcSlots: null, construction: {wood: 15, stone: 15, grease: 0.25},
+            buildLimit: null, npcSlots: null, construction: {wood: 5, stone: 5, wealth: 10, grease: 0.8},
             wares: []
         },
         upgradeSpecs: [
             null, null, 
-            {displayName: `Hunting Den`, townstats: {gameAmp: 0.25, vegAmp: 0.25}, level: 2, hp: 1000, construction: {wood: 35, stone: 15, leather: 15, grease: 2}, description: ``},
-            {displayName: `Trackers' Cabin`, townstats: {gameAmp: 0.3, vegAmp: 0.3}, level: 3, hp: 1400, construction: {timber: 35, chalkstone: 15, iron: 20, grease: 12}, description: ``},
-            {displayName: `Trackers' Cabin`, townstats: {gameAmp: 0.35, vegAmp: 0.35}, level: 4, hp: 1800, construction: {timber: 40, chalkstone: 40, steel: 10, copper: 20, grease: 16}, description: ``},
-            {displayName: `Hunters' Hall`, townstats: {gameAmp: 0.4, vegAmp: 0.4}, level: 5, hp: 2350, construction: {hardwood: 35, marble: 35, steel: 30, grease: 20}, description: ``},
+            {displayName: `Hunting Den`, townstats: {gameAmp: 0.35, vegAmp: 0.35}, level: 2, hp: 1000, construction: {wood: 10, stone: 10, leather: 10, wealth: 25, grease: 2.5}, description: ``},
+            {displayName: `Trackers' Den`, townstats: {gameAmp: 0.4, vegAmp: 0.4}, level: 3, hp: 1400, construction: {wood: 25, stone: 25, leather: 25, iron: 10, wealth: 100, grease: 10}, description: ``},
+            {displayName: `Trackers' Cabin`, townstats: {gameAmp: 0.45, vegAmp: 0.45}, level: 4, hp: 1800, construction: {timber: 20, chalkstone: 20, leather: 30, iron: 10, wealth: 250, grease: 60}, description: ``},
+            {displayName: `Hunters' Hall`, townstats: {gameAmp: 0.5, vegAmp: 0.5}, level: 5, hp: 2350, construction: {timber: 35, chalkstone: 35, pelt: 20, wealth: 600, grease: 120}, description: ``},
         ],
         specializations: {
             'Hunting Gear': {name: 'Hunting Gear', wares: [], cost: {}, reqs: {}, description: ``},
@@ -435,7 +444,7 @@ const allTownshipStructs = {
     'angler': {
         baseStats: {
             type: 'angler', displayName: `Anglers' Shack`, id: null, soulRef: null, nickname: `Fishin' Shack`, level: 1, hp: 750, interactions: null, icon: null, weight: 1,
-            townstats: {waterAmp: 0.2},
+            townstats: {waterAmp: 0.3},
             tileIncomes: {
                 'o': {gameIncome: 1.5, vegIncome: 0.5},
                 'c': {gameIncome: 0.5, waterIncome: 0.5, vegIncome: 0.5},
@@ -443,15 +452,15 @@ const allTownshipStructs = {
                 'f': {gameIncome: 0.5, waterIncome: 1.5},
             },
             description: `A somewhat ramshackle building bearing various tools for fishing and simple watercraft. Substantially improves the township's ability to gather fish and other game from oceans and lakes, as well as make use of local vegetation native to these bodies of water. A basic desalination and filtration setup helps the township make better use of all water supplies.`, 
-            buildLimit: null, npcSlots: null, construction: {wood: 20, stone: 10, grease: 0.25},
+            buildLimit: null, npcSlots: null, construction: {wood: 5, stone: 5, wealth: 10, grease: 0.8},
             wares: []
         },
         upgradeSpecs: [
             null, null, 
-            {displayName: `Anglers' Shack`, townstats: {waterAmp: 0.25}, level: 2, hp: 1000, construction: {wood: 35, stone: 15, leather: 15, grease: 2}, description: ``},
-            {displayName: `Anglers' Abode`, townstats: {waterAmp: 0.3}, level: 3, hp: 1400, construction: {timber: 35, chalkstone: 15, iron: 20, grease: 12}, description: ``},
-            {displayName: `Anglers' Abode`, townstats: {waterAmp: 0.35}, level: 4, hp: 1800, construction: {timber: 40, chalkstone: 40, steel: 10, copper: 20, grease: 16}, description: ``},
-            {displayName: `Waterfarer Hall`, townstats: {waterAmp: 0.4}, level: 5, hp: 2350, construction: {hardwood: 35, marble: 35, steel: 30, grease: 20}, description: ``},
+            {displayName: `Anglers' Abode`, townstats: {waterAmp: 0.35}, level: 2, hp: 1000, construction: {wood: 10, stone: 10, leather: 5, wealth: 25, grease: 2.5}, description: ``},
+            {displayName: `Riverrunner Abode`, townstats: {waterAmp: 0.4}, level: 3, hp: 1400, construction: {wood: 25, stone: 25, copper: 5, wealth: 100, grease: 10}, description: ``},
+            {displayName: `Riverrunner Cabin`, townstats: {waterAmp: 0.45}, level: 4, hp: 1800, construction: {timber: 20, chalkstone: 20, iron: 10, copper: 20, wealth: 250, grease: 60}, description: ``},
+            {displayName: `Waterfarer Hall`, townstats: {waterAmp: 0.5}, level: 5, hp: 2350, construction: {timber: 35, chalkstone: 35, copper: 30, wealth: 600, grease: 120}, description: ``},
         ],
         specializations: {
             'Feesh!': {name: 'Feesh!', wares: [], cost: {}, reqs: {}, description: ``},
@@ -460,22 +469,22 @@ const allTownshipStructs = {
     'sawmill': {
         baseStats: {
             type: 'sawmill', displayName: `Small Sawmill`, id: null, soulRef: null, nickname: `Buzzin Saw`, level: 1, hp: 750, interactions: null, icon: null, weight: 1,
-            townstats: {woodAmp: 0.2, timberAmp: 0.2},
+            townstats: {woodAmp: 0.3, timberAmp: 0.3},
             tileIncomes: {
                 'j': {woodIncome: 1},
                 'w': {woodIncome: 1},
                 't': {woodIncome: 1},
             },
             description: `Essentially a long, open-air structure for housing lumber and processing wood. The tools and expertise here enhance the ability to find and gather quality wood from forests, enhance yields from converting raw wood into timber, and can ultimately develop the means to procure the higher grades of wood work.`, 
-            buildLimit: null, npcSlots: null, construction: {wood: 15, stone: 10, ore: 10, grease: 0.25},
+            buildLimit: null, npcSlots: null, construction: {wood: 5, ore: 5, wealth: 10, grease: 0.8},
             wares: []
         },
         upgradeSpecs: [
             null, null, 
-            {displayName: `Small Sawmill`, townstats: {woodAmp: 0.25, timberAmp: 0.25}, level: 2, hp: 1000, construction: {wood: 35, stone: 15, leather: 15, grease: 2}, description: ``},
-            {displayName: `Sawmill`, townstats: {woodAmp: 0.3, timberAmp: 0.3}, level: 3, hp: 1400, construction: {timber: 35, chalkstone: 15, iron: 20, grease: 12}, description: ``},
-            {displayName: `Sawmill`, townstats: {woodAmp: 0.35, timberAmp: 0.35}, level: 4, hp: 1800, construction: {timber: 40, chalkstone: 40, steel: 10, copper: 20, grease: 16}, description: ``},
-            {displayName: `Swarthy Sawmill`, townstats: {woodAmp: 0.4, timberAmp: 0.4}, level: 5, hp: 2350, construction: {hardwood: 35, marble: 35, steel: 30, grease: 20}, description: ``},
+            {displayName: `Sundry Sawmill`, townstats: {woodAmp: 0.35, timberAmp: 0.35}, level: 2, hp: 1000, construction: {wood: 10, ore: 10, leather: 5, wealth: 25, grease: 2.5}, description: ``},
+            {displayName: `Swarthy Sawmill`, townstats: {woodAmp: 0.4, timberAmp: 0.4}, level: 3, hp: 1400, construction: {wood: 25, iron: 15, wealth: 100, grease: 10}, description: ``},
+            {displayName: `Lumberyard`, townstats: {woodAmp: 0.45, timberAmp: 0.45}, level: 4, hp: 1800, construction: {timber: 20, iron: 20, wealth: 250, grease: 60}, description: ``},
+            {displayName: `Lumbercraft Hall`, townstats: {woodAmp: 0.5, timberAmp: 0.5}, level: 5, hp: 2350, construction: {timber: 35, iron: 25, steel: 15, wealth: 600, grease: 120}, description: ``},
         ],
         specializations: {
             'Oaky': {name: 'Oaky', wares: [], cost: {}, reqs: {}, description: ``},
@@ -486,15 +495,15 @@ const allTownshipStructs = {
             type: 'farm', displayName: `Community Garden`, id: null, soulRef: null, nickname: `Veggies`, level: 1, hp: 750, interactions: null, icon: null, weight: 1,
             townstats: {vegIncome: 1, waterIncome: 1, gameIncome: 1},
             description: `A somewhat spacious plot of land, carefully cultivated to be as self-contained as possible, featuring tilled soil, a small pen for livestock, and a rudimentary well for providing a fresh water source. Provides a steady internal source of game, vegetation, and water.`, 
-            buildLimit: null, npcSlots: null, construction: {wood: 15, stone: 15, grease: 0.25},
+            buildLimit: null, npcSlots: null, construction: {wood: 5, stone: 5, wealth: 10, grease: 0.8},
             wares: []
         },
         upgradeSpecs: [
             null, null, 
-            {displayName: `Community Garden`, townstats: {vegIncome: 1.1, waterIncome: 1.1, gameIncome: 1.1}, level: 2, hp: 1000, construction: {wood: 35, stone: 15, leather: 15, grease: 2}, description: ``},
-            {displayName: `Small Farm`, townstats: {vegIncome: 1.2, waterIncome: 1.2, gameIncome: 1.2}, level: 3, hp: 1400, construction: {timber: 35, chalkstone: 15, iron: 20, grease: 12}, description: ``},
-            {displayName: `Small Farm`, townstats: {vegIncome: 1.3, waterIncome: 1.3, gameIncome: 1.3}, level: 4, hp: 1800, construction: {timber: 40, chalkstone: 40, steel: 10, copper: 20, grease: 16}, description: ``},
-            {displayName: `Farmstead`, townstats: {vegIncome: 1.4, waterIncome: 1.4, gameIncome: 1.4}, level: 5, hp: 2350, construction: {hardwood: 35, marble: 35, steel: 30, grease: 20}, description: ``},
+            {displayName: `Community Garden`, townstats: {vegIncome: 1.125, waterIncome: 1.125, gameIncome: 1.125}, level: 2, hp: 1000, construction: {wood: 10, stone: 10, leather: 10, wealth: 25, grease: 2.5}, description: ``},
+            {displayName: `Small Farm`, townstats: {vegIncome: 1.25, waterIncome: 1.25, gameIncome: 1.25}, level: 3, hp: 1400, construction: {wood: 25, stone: 25, iron: 10, wealth: 100, grease: 10}, description: ``},
+            {displayName: `Small Farm`, townstats: {vegIncome: 1.375, waterIncome: 1.375, gameIncome: 1.375}, level: 4, hp: 1800, construction: {timber: 20, chalkstone: 20, iron: 10, copper: 20, wealth: 250, grease: 60}, description: ``},
+            {displayName: `Farmstead`, townstats: {vegIncome: 1.5, waterIncome: 1.5, gameIncome: 1.5}, level: 5, hp: 2350, construction: {timber: 35, chalkstone: 35, iron: 20, wealth: 600, grease: 120}, description: ``},
         ],
         specializations: {
             'Aminals!': {name: 'Aminals!', wares: [], cost: {}, reqs: {}, description: ``},
@@ -3920,6 +3929,7 @@ function saveGameState() {
         })
         .catch(err => {
             console.log(`We encountered an error saving the game state: ${err}.`);
+            return gameSaveTimeout = setTimeout(() => saveGameState(), standardSaveInterval);
         });
 
 
@@ -4041,7 +4051,65 @@ io.on('connection', (socket) => {
     });
 
     socket.on('build_new_struct', reqObj => {
-        //!MHRBUILD
+        //!MHRBUILD ... oh, ok, doing it below
+    });
+
+    socket.on('begin_struct_build', reqObj => {
+        // return sendSocketData({targetStruct: structPreviewObj}, 'begin_struct_build');
+        // receiving an obj containing {type, displayName, description, construction}
+        // return console.log(`Receiving THIS build prep object: `, reqObj);
+        const { targetStruct } = reqObj;
+        const { type: structTypeKey } = targetStruct;
+        if (thisPlayer == null) thisPlayer = allSouls[targetStruct.soulRef];
+
+        const township = thisPlayer.township;
+
+        console.log(`${thisPlayer.name} is trying to build a ${structTypeKey}.`);
+        let constructionCost = {...allTownshipStructs[structTypeKey].baseStats.construction};
+        const { grease, wealth: wealthCost } = constructionCost;
+        delete constructionCost.grease;
+        delete constructionCost.wealth;
+        let buildable = true;
+        Object.keys(constructionCost).forEach(reqItemKey => {
+            if (township?.inventory[reqItemKey] < constructionCost[reqItemKey]) buildable = false;
+        });
+        if (township.wealth < wealthCost) buildable = false;
+
+        // console.log(buildable ? `Turns out, they could!` : `They just don't meet the costs or reqs, though.`);
+        if (township.gatheringCoords.length + township.building.length + township.refining.length >= township.townstats.actionSlots) return console.log(`Oops. Need to free up some workers.`);
+
+        if (!buildable) {
+            console.log(`Missing something for the upgrade on ${targetStruct.displayName}. Wealth is ${township.wealth} and inventory is `, township.inventory);
+            return console.log(`Hopefully that clarifies what's missing back here?`);
+        } 
+
+        const rightNow = new Date();
+
+        const newBuildProject = {
+            workers: 1,
+            progress: 0,
+            goal: grease,
+            lastTick: rightNow,
+            projectedFinish: new Date(rightNow + (1000 * 60 * 60 * grease / 10)),
+            type: 'build',
+            buildingAt: 'township',
+            subject: structTypeKey,
+            constructionMats: {...constructionCost},
+            soulRef: thisPlayer.name
+        }
+
+        Object.keys(constructionCost).forEach(reqItemKey => {
+            township.inventory[reqItemKey] = township.inventory[reqItemKey] - constructionCost[reqItemKey];
+        });
+        township.wealth -= wealthCost;
+
+        thisPlayer.township.building.push(newBuildProject);
+        calcTownship(thisPlayer.township);
+        calcTownIncome(township);
+
+        let managementData = fetchManagementData(township);
+
+        socket.emit('township_management_data', managementData);
     });
 
     socket.on('begin_struct_upgrade', reqObj => {
@@ -4145,6 +4213,9 @@ io.on('connection', (socket) => {
         const { soul } = reqObj;
         const township = allSouls[soul].township;
 
+        console.log(`Last tick: ${township.lastTick}`)
+
+        // if (thisPlayer == null) console.log(`A NULLY PLAYER wanted to see a township! Weird.`);
         if (thisPlayer == null) thisPlayer = allSouls[soul];
 
         /*
@@ -4170,7 +4241,9 @@ io.on('connection', (socket) => {
         // const buildableStructs = Object.keys(allTownshipStructs).filter(structKey => allTownshipStructs[structKey].baseStats.buildLimit == null).map(structKey => {
         //     return {type: allTownshipStructs[structKey].baseStats.type, description: allTownshipStructs[structKey].baseStats.description, construction: {...allTownshipStructs[structKey].baseStats.construction}}
         // });
-
+        // could it be as simple as failing to calcTownship first...?
+        // newp, still seems sketch
+        calcTownship(township);
         calcTownIncome(township);
 
         let managementData = fetchManagementData(township);
@@ -4571,6 +4644,7 @@ io.on('connection', (socket) => {
         brandNewPlayer.level = 1;
         brandNewPlayer.exp = 0;
         brandNewPlayer.mne = 0;
+        brandNewPlayer.bigMne = {};
         brandNewPlayer.entityType = 'player';
         brandNewPlayer.faction = 'zenithican';
 
@@ -4627,6 +4701,7 @@ io.on('connection', (socket) => {
             weight: 0,
             interactions: ['nexus', 'gate'],
             wealth: 100,
+            flux: 0,
             inventory: {
                 wood: 20, stone: 20, ore: 20, game: 20, water: 20, veg: 20,
                 timber: 0, chalkstone: 0, iron: 0, copper: 0,
@@ -4637,7 +4712,7 @@ io.on('connection', (socket) => {
                 woodIncome: 0, oreIncome: 0, stoneIncome: 0, gameIncome: 0, waterIncome: 0, vegIncome: 0,
                 woodAmp: 1, oreAmp: 1, stoneAmp: 1, gameAmp: 1, waterAmp: 1, vegAmp: 1,
                 timberAmp: 1, ironAmp: 1, copperAmp: 1, chalkstoneAmp: 1, foodAmp: 1,
-                actionSlots: 0, traffic: 0, commerce: 0, storage: 0, buildCapacity: 1, upgradeCap: 2
+                actionSlots: 0, traffic: 0, commerce: 0, storage: 0, buildCapacity: 1, upgradeCap: 2, fluxMax: 20
             },
             tileIncomes: {
                 'j': {woodIncome: 2, gameIncome: 1, vegIncome: 1},
@@ -5354,7 +5429,8 @@ function loadGame(gameObject) {
         // line below is what causes SUPER DOOM.
         // let newNexusID = generateRandomID('nex');
         // allSouls['Zenithica'].structs[newNexusID] = new NexusStruct().init(allSouls['Zenithica'], newNexusID);
-        let shinyNewNexus = new NexusStruct().init(allSouls.Zenithica.township);
+        // let shinyNewNexus = new NexusStruct().init(allSouls.Zenithica.township);
+        let newStruct = new Struct(allTownshipStructs['crossroad'].baseStats).init(allSouls.Zenithica.township);
         // let shinyNewNexus = new NexusStruct();
     }
 
@@ -6208,7 +6284,7 @@ function finishBuilding(project, index) {
             projectedFinish: new Date(rightNow + (1000 * 60 * 60 * grease / 10)),
             type: 'upgrade',
             buildingAt: 'township',
-            subject: targetStruct.id,
+            subject: targetStruct.id (upgrade) or structTypeKey (build),
             constructionMats: {...constructionCost},
             soulRef: name
         }
@@ -6221,7 +6297,10 @@ function finishBuilding(project, index) {
         case 'township': {
             const township = allSouls[project.soulRef].township;
             if (project.type === 'build') {
-                
+                let brandNewStruct = new Struct(allTownshipStructs[project.subject].baseStats).init(township);
+                console.log(`In theory, we have cleverly built a brand-new ${project.subject} for ${township.soulRef}.`);
+                return township.building[index] = null;
+
             }
             if (project.type === 'upgrade') {
                 // the first scenario!
@@ -6259,7 +6338,7 @@ function calcTownship(townshipRef) {
         woodAmp: 1, oreAmp: 1, stoneAmp: 1, gameAmp: 1, waterAmp: 1, vegAmp: 1,
         timberAmp: 1, ironAmp: 1, copperAmp: 1, chalkstoneAmp: 1, foodAmp: 1,
         hardwoodAmp: 1, steelAmp: 1, silverAmp: 1, marbleAmp: 1,
-        actionSlots: townLevel, traffic: 0, commerce: 0, storage: 0, buildCapacity: townLevel, upgradeCap: townLevel
+        actionSlots: townLevel, traffic: 0, commerce: 0, storage: 0, buildCapacity: townLevel, upgradeCap: townLevel, fluxMax: 24 + townLevel
     };
     townshipRef.refineOptions = [];
     townshipRef.weight = 0;
@@ -6312,8 +6391,13 @@ function calcTownship(townshipRef) {
     if (townshipRef.worldID != null) {
         const refMap = allWorlds[townshipRef.worldID].map;
         // let homeTileIncome = calcTileIncome(refMap[townshipRef.wps[0]][townshipRef.wps[1]]);
+        
+        let buildyFolk = 0;
+        townshipRef.building.forEach(buildingObj => buildyFolk += buildingObj.workers);
+        townshipRef.refining.forEach(refiningObj => buildyFolk += refiningObj.workers);
+        let idleWorkers = townshipRef.townstats.actionSlots - townshipRef.gatheringCoords.length - buildyFolk;
         let homeTileIncome = townshipRef.tileIncomes[refMap[townshipRef.wps[0]][townshipRef.wps[1]][0]];
-        Object.keys(homeTileIncome).forEach(incomeKey => townshipRef.townstats[incomeKey] += homeTileIncome[incomeKey]);
+        Object.keys(homeTileIncome).forEach(incomeKey => townshipRef.townstats[incomeKey] = townshipRef.townstats[incomeKey] + homeTileIncome[incomeKey] * (1 + idleWorkers / 2));
 
 
         if (townshipRef.gatheringCoords.length > 0) {
@@ -6372,29 +6456,31 @@ function calcTownIncome(townshipRef) {
     if (townshipRef.refining.length > 0) {
         const minutesElapsed = Math.floor(hoursElapsed * 60);
         
+        // changing to {name: 'Brew Beer', resource: 'water', from: {veg: 2, water: 2}, into: {beer: 2}, time: 60} + {# workers}
+        // shouldn't have to change TOO much down here... hopefully :p
 
-        townshipRef.refining.forEach(refiningKey => {
+        townshipRef.refining.forEach(refiningObject => {
             // changed to remove Math.floor() on times to run, so we avoid situations where checking on refining before an hour effectively resets refining progress
-            const recipeObj = townshipRef.refineOptions.filter(refRecipe => refRecipe.name === refiningKey)[0];
-            let maxTimesToRun = minutesElapsed / recipeObj.time;
+            
+            let maxTimesToRun = minutesElapsed / refiningObject.time;
             let timesToRun = 0;
             let costs = {};
-            Object.keys(recipeObj.from).forEach(reqMat => {
-                costs[reqMat] = recipeObj.from[reqMat] * maxTimesToRun;
+            Object.keys(refiningObject.from).forEach(reqMat => {
+                costs[reqMat] = refiningObject.from[reqMat] * maxTimesToRun * refiningObject.workers;
                 timesToRun = Math.floor(townshipRef.inventory[reqMat] / costs[reqMat]);
                 if (timesToRun > maxTimesToRun) timesToRun = maxTimesToRun;
             });
-            console.log(`Looks like we're looping through ${timesToRun} out of a initial max of ${maxTimesToRun} times while refining ${refiningKey}!`);
+            console.log(`Looks like we're looping through ${timesToRun} out of a initial max of ${maxTimesToRun} times while refining ${refiningObject.name}!`);
             // so we SHOULD have a valid timesToRun at the end of this to... redouble our efforts, so to speak
             // basically we want to go through and decrement by timesToRun * cost for each inventory item and then increment by into via the same amt
-            Object.keys(recipeObj.from).forEach(reqMat => {
-                townshipRef.inventory[reqMat] -= timesToRun * recipeObj.from[reqMat];
+            Object.keys(refiningObject.from).forEach(reqMat => {
+                townshipRef.inventory[reqMat] -= timesToRun * refiningObject.from[reqMat] * refiningObject.workers;
             });
-            Object.keys(recipeObj.into).forEach(resMat => {
+            Object.keys(refiningObject.into).forEach(resMat => {
                 let ampKey = `${resMat}Amp`;
                 const ampAmount = townshipRef?.townstats[ampKey] || 1;
                 if (townshipRef.inventory[resMat] == null) townshipRef.inventory[resMat] = 0;
-                townshipRef.inventory[resMat] += timesToRun * recipeObj.into[resMat] * ampAmount;
+                townshipRef.inventory[resMat] += timesToRun * refiningObject.into[resMat] * ampAmount * refiningObject.workers;
                 // console.log(`Adding ${resMat} to the user's stock! Brings us up to a total of ${townshipRef.inventory[resMat]}.`);
             });
 
@@ -6426,7 +6512,8 @@ function calcTownIncome(townshipRef) {
         // actually, we have a rightNow in scope already in this fxn, so making a new one is a little redundant at best
         // const rightNow = new Date();
         townshipRef.building.forEach((project, index) => {
-            project.progress = project.workers * hoursElapsed;
+            // x10 here because project 'grease' cost = hours * 10, for raisins
+            project.progress += project.workers * hoursElapsed * 10;
             project.lastTick = rightNow;
             if (project.progress > project.goal) {
                 finishBuilding(project, index);
@@ -6439,7 +6526,7 @@ function calcTownIncome(townshipRef) {
         if (jobsDone > 0) {
             townshipRef.building = townshipRef.building.filter(buildObj => buildObj != null);
             calcTownship(townshipRef);
-            let managementData = fetchManagementData(townshipRef);
+            // let managementData = fetchManagementData(townshipRef);
             // removing the socket for now; every instance of this fxn already immediately does precisely this anyway
             // alternatively, since we would never use this fxn without sharing the data if applicable, we can scoot the socket feedback here instead
             // io.to(townshipRef.soulRef).emit('township_management_data', managementData);
@@ -6451,8 +6538,8 @@ function calcTownIncome(townshipRef) {
     
     }
 
-
     townshipRef.lastTick = rightNow;
+    console.log(`La de da. Setting a new lastTick of ${townshipRef.lastTick}`)
 }
 
 function calcTileIncome(tileString) {
@@ -6541,10 +6628,13 @@ const allWorldStructs = {}
 
 function fetchManagementData(township) {
     let managementData = {
+        asOf: new Date(),
+        flux: township?.flux || 0,
         wealth: township.wealth,
         weight: township.weight,
         structs: township.structs,
         townstats: {...township.townstats},
+        tileIncomes: {...township.tileIncomes},
         gatheringCoords: [...township.gatheringCoords],
         building: [...township.building],
         refining: [...township.refining],
