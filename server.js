@@ -316,11 +316,10 @@ const allTownshipStructs = {
         },
         upgradeSpecs: [
             null, null,
-            {level: 2, hp: 2500, displayName: `Crossroads Inn`, construction: {wood: 10, stone: 10, leather: 10, ore: 10, wealth: 50, grease: 2.5}},
-            {level: 3, hp: 3000, displayName: 'Crossroads Lodge', construction: {wood: 30, stone: 30, iron: 10, wealth: 150, food: 15, grease: 10}},
-            {level: 4, hp: 3500, displayName: 'Crossroads Hall', construction: {timber: 25, chalkstone: 25, iron: 30, copper: 20, wealth: 350, grease: 60}},
-            {level: 5, hp: 4250, displayName: 'Crossroads Center', construction: {timber: 40, chalkstone: 40, steel: 35, silver: 25, wealth: 1000, grease: 120}},
-            // {level: 6, hp: 5000, displayName: 'Crossroads Hall', construction: {opalite: 9999, grease: 9999}},
+            {level: 2, hp: 2500, displayName: `Crossroads Inn`, construction: {wood: 10, stone: 10, leather: 5, ore: 10, wealth: 50, grease: 2.5}},
+            {level: 3, hp: 3000, displayName: 'Crossroads Lodge', construction: {wood: 25, stone: 25, iron: 5, wealth: 150, food: 10, grease: 10}},
+            {level: 4, hp: 3500, displayName: 'Crossroads Hall', construction: {wood: 40, stone: 40, iron: 20, copper: 15, food: 20, beer: 10, wealth: 350, grease: 60}},
+            {level: 5, hp: 4250, displayName: 'Crossroads Center', construction: {timber: 30, chalkstone: 30, iron: 35, copper: 25, food: 30, beer: 15, wealth: 1000, grease: 120}},
         ],
         specializations: {
             'Town Well Lv.2': {name: `Town Well Lv.2`, townstats: {waterIncome: 1}, cost: {grease: 3, wealth: 50, timber: 10, chalkstone: 10, iron: 10, copper: 5}, reqs: {}, description: `Renovates the central well of the township Crossroads, providing +1 water per hour.`},
@@ -332,7 +331,7 @@ const allTownshipStructs = {
     'tradehall': {
         baseStats: {
             type: 'tradehall', displayName: 'Tradecraft Yard', id: null, soulRef: null, nickname: `The Tradehall`, level: 1, hp: 500, interactions: ['shop'], icon: null, weight: 0,
-            townstats: {actionSlots: 2, commerce: 2, storage: 500},
+            townstats: {commerce: 1, storage: 1000},
             description: `An expansive collection of leather sheets, held up by massive tree trunks, under which rests all manner of equipment for gathering, refining, and crafting. A massive collection of crates surrounds the perimeter, housing the bulk of the township's inventory.`, 
             refineOptions: [
                 {name: 'Butcher Game', resource: 'game', from: {game: 4, water: 2}, into: {food: 2, leather: 2}, time: 60},
@@ -345,10 +344,10 @@ const allTownshipStructs = {
         },
         upgradeSpecs: [
             null, null, 
-            {level: 2, hp: 800, displayName: 'Tradecraft Tent', townstats: {storage: 700}, construction: {leather: 10, wood: 5, stone: 5, wealth: 25, grease: 2.5}},
-            {level: 3, hp: 1200, displayName: 'Tradecraft Cabin', townstats: {storage: 900}, construction: {wood: 20, stone: 10, iron: 10, copper: 10, wealth: 100, grease: 10}},
-            {level: 4, hp: 1500, displayName: 'Tradecraft Hall', townstats: {storage: 1100}, construction: {timber: 15, chalkstone: 10, wealth: 250, grease: 60}},
-            {level: 5, hp: 2000, displayName: 'Tradecraft Guild', townstats: {storage: 1500}, construction: {timber: 25, chalkstone: 25, wealth: 600, grease: 120}},
+            {level: 2, hp: 800, displayName: 'Tradecraft Tent', townstats: {commerce: 2, storage: 1200}, construction: {leather: 5, wood: 10, stone: 10, wealth: 25, grease: 2.5}},
+            {level: 3, hp: 1200, displayName: 'Tradecraft Cabin', townstats: {commerce: 3, storage: 1400}, construction: {wood: 30, stone: 20, iron: 5, copper: 5, wealth: 100, grease: 10}},
+            {level: 4, hp: 1500, displayName: 'Tradecraft Hall', townstats: {commerce: 4, storage: 1600}, construction: {wood: 40, stone: 40, wealth: 250, grease: 60}},
+            {level: 5, hp: 2000, displayName: 'Tradecraft Guild', townstats: {commerce: 5, storage: 2000}, construction: {timber: 25, chalkstone: 25, wealth: 600, grease: 120}},
         ],
         specializations: {
             'Expand Storage': {name: `Expand Storage`, townstats: {storage: 500}, cost: {wealth: 250, grease: 2, stone: 20, wood: 20}, reqs: {}, description: ``},
@@ -2922,6 +2921,13 @@ const structActions = {
     shop(entity, township) {
         // bring up those WARES!
         console.log(`${entity.name} wishes to go shopping! But ${township.nickname} is ill-equipped to handle such an idea.`);
+    },
+    train(entity, township) {
+        // hm. can take a look at the 'class structs' and relevant vars thereof to feed a menu to the client to work with
+        console.log(`${entity.name} wishes to train their class.`);
+    },
+    trade(entity, township) {
+        console.log(`${entity.name} wishes to trade in township goods.`);
     }
 
 }
@@ -4036,6 +4042,19 @@ io.on('connection', (socket) => {
         // HERE: sort out lastViewTime logistics to give meaningful data for the client to parse for the player
     });
 
+    socket.on('flux_action_accelerate', reqObj => {
+        if (thisPlayer == null) thisPlayer = allSouls[reqObj.soul];
+        let township = thisPlayer.township;
+        // this is gonna fire off some MGMTDATA for us!
+        calcTownship(township);
+        calcTownIncome(township, township.flux / 5);
+        township.flux = 0;
+
+        let managementData = fetchManagementData(township);
+
+        socket.emit('township_management_data', managementData);
+    });
+
     socket.on('request_a_map', request => {
         // holdover from basic map testing; fine to placekeep this for now, since we can use it to play with map creation logic
         let newestWorld = createWorldMap({size: 'small', level: 5, continents: 1, rangeMax: true});
@@ -4267,6 +4286,8 @@ io.on('connection', (socket) => {
         thisPlayer.township.gatheringCoords = [...newGatheringCoords];
         thisPlayer.township.refining = [...newRefining];
         thisPlayer.township.building = [...newBuilding];
+
+        // HERE: make sure we're not over-stretched, ideally... can't trust that rascally client!
 
         // console.log(`BEHOLD OUR NEW MANAGEMENT DATA- `, newMgmtData);
 
@@ -4709,10 +4730,10 @@ io.on('connection', (socket) => {
                 leather: 10, food: 10, beer: 0
             },
             townstats: {
-                woodIncome: 0, oreIncome: 0, stoneIncome: 0, gameIncome: 0, waterIncome: 0, vegIncome: 0,
-                woodAmp: 1, oreAmp: 1, stoneAmp: 1, gameAmp: 1, waterAmp: 1, vegAmp: 1,
+                woodIncome: 0, oreIncome: 0, stoneIncome: 0, gameIncome: 0, waterIncome: 0, vegIncome: 0, fluxIncome: 1,
+                woodAmp: 1, oreAmp: 1, stoneAmp: 1, gameAmp: 1, waterAmp: 1, vegAmp: 1, fluxAmp: 1,
                 timberAmp: 1, ironAmp: 1, copperAmp: 1, chalkstoneAmp: 1, foodAmp: 1,
-                actionSlots: 0, traffic: 0, commerce: 0, storage: 0, buildCapacity: 1, upgradeCap: 2, fluxMax: 20
+                actionSlots: 0, traffic: 0, commerce: 0, storage: 0, buildCapacity: 1, upgradeCap: 2, fluxMax: 20,
             },
             tileIncomes: {
                 'j': {woodIncome: 2, gameIncome: 1, vegIncome: 1},
@@ -5433,6 +5454,10 @@ function loadGame(gameObject) {
         let newStruct = new Struct(allTownshipStructs['crossroad'].baseStats).init(allSouls.Zenithica.township);
         // let shinyNewNexus = new NexusStruct();
     }
+
+    // HERE: add all current ZENITHICA interact options
+    const Zen = allSouls.Zenithica.township;
+    Zen.interactions = ['nexus', 'trade', 'train'];
 
     // ooh we should add ouch and any other 'universal' functions to all our players
     Object.keys(allSouls).forEach(playerName => {
@@ -6305,10 +6330,10 @@ function finishBuilding(project, index) {
             if (project.type === 'upgrade') {
                 // the first scenario!
                 let upgradingStruct = township.structs[project.subject];
-                console.log(`Building is UPGRADING! Before: `, upgradingStruct);
+                // console.log(`Building is UPGRADING! Before: `, upgradingStruct);
                 // NOTE: this method assumes we're defining each LEVEL in upgradeSpecs as an almost wholly standalone entity that includes all boosts from lower levels
                 township.structs[project.subject] = {...upgradingStruct, ...allTownshipStructs[upgradingStruct.type].upgradeSpecs[upgradingStruct.level + 1]};
-                console.log(`Now the actual township: `, township.structs[project.subject])
+                // console.log(`Now the actual township: `, township.structs[project.subject])
                 return township.building[index] = null;
                 // return township.building = township.building.filter(projObj => projObj.subject !== project.subject);
             }
@@ -6334,11 +6359,11 @@ function calcTownship(townshipRef) {
     // resetti spaghetti
     const townLevel = townshipRef.structs.crossroad.level;
     townshipRef.townstats = {
-        woodIncome: 0, oreIncome: 0, stoneIncome: 0, gameIncome: 0, waterIncome: 0, vegIncome: 0,
-        woodAmp: 1, oreAmp: 1, stoneAmp: 1, gameAmp: 1, waterAmp: 1, vegAmp: 1,
+        woodIncome: 0, oreIncome: 0, stoneIncome: 0, gameIncome: 0, waterIncome: 0, vegIncome: 0, fluxIncome: 1,
+        woodAmp: 1, oreAmp: 1, stoneAmp: 1, gameAmp: 1, waterAmp: 1, vegAmp: 1, fluxAmp: 1,
         timberAmp: 1, ironAmp: 1, copperAmp: 1, chalkstoneAmp: 1, foodAmp: 1,
         hardwoodAmp: 1, steelAmp: 1, silverAmp: 1, marbleAmp: 1,
-        actionSlots: townLevel, traffic: 0, commerce: 0, storage: 0, buildCapacity: townLevel, upgradeCap: townLevel, fluxMax: 24 + townLevel
+        actionSlots: townLevel + townshipRef.structs.tradehall.level, traffic: 0, commerce: 0, storage: 0, buildCapacity: townLevel, upgradeCap: townLevel, fluxMax: 24 + townLevel
     };
     townshipRef.refineOptions = [];
     townshipRef.weight = 0;
@@ -6409,19 +6434,28 @@ function calcTownship(townshipRef) {
         }
     }
 
+
     // console.log(`A post-init township `, townshipRef);
     // console.log(`Also, we should see that new WEIGHT starting out: ${townshipRef.weight}`);
 }
 
-function calcTownIncome(townshipRef) {
+function calcTownIncome(townshipRef, hoursToPass) {
     // REFin' it up again
     // THIS: basically, not just income, but anything that's tick-centric, such as building
 
     const rightNow = new Date();
-    const hoursElapsed = (rightNow - new Date(townshipRef.lastTick)) / 3600000;
-    console.log(`Calculating income for ${townshipRef.soulRef}'s township. It's been ${hoursElapsed} hours!`);
+    const hoursElapsed = hoursToPass != null ? hoursToPass : (rightNow - new Date(townshipRef.lastTick)) / 3600000;
+    // console.log(`Calculating income for ${townshipRef.soulRef}'s township. It's been ${hoursElapsed} hours!`);
     // if (hoursElapsed < (1 / 12)) return console.log(`Eh, it hasn't even been five minutes! Let's wait before calculating income.`);
 
+    if (hoursToPass == null) {
+        let fluxGain = townshipRef.townstats.fluxIncome * townshipRef.townstats.fluxAmp * hoursElapsed;
+        // console.log(`Flux Gain should be ${fluxGain}`);
+        if (townshipRef.flux + fluxGain <= townshipRef.townstats.fluxMax) townshipRef.flux += fluxGain;
+        // console.log(`Township's actual current flux is now ${townshipRef.flux}`)
+    }
+
+    
 
     let woodIncome = townshipRef.townstats.woodIncome * townshipRef.townstats.woodAmp * hoursElapsed;
     let oreIncome = townshipRef.townstats.oreIncome * townshipRef.townstats.oreAmp * hoursElapsed;
@@ -6446,31 +6480,55 @@ function calcTownIncome(townshipRef) {
     townshipRef.inventory.game += gameIncome;
     townshipRef.inventory.water += waterIncome;
     townshipRef.inventory.veg += vegIncome;
+    console.log(`INVENTORY, before any refining: `, townshipRef.inventory);
 
     // plan to do more with this later, but for now, commerce = straight $$ :P
     // commerce * 5 for now, and later maybe further amped by traffic
-    // starting income is therefore 15/hr, so bear that in mind for costs
     //  ... though! we can also engage in some TRADE with Zenithica and others to bolster that, which would be super neat
     townshipRef.wealth += townshipRef.townstats.commerce * hoursElapsed * 5;
 
     if (townshipRef.refining.length > 0) {
-        const minutesElapsed = Math.floor(hoursElapsed * 60);
         
         // changing to {name: 'Brew Beer', resource: 'water', from: {veg: 2, water: 2}, into: {beer: 2}, time: 60} + {# workers}
         // shouldn't have to change TOO much down here... hopefully :p
 
+        /*
+        
+            OKIDOKIE!
+            - COSTS are super sub-fractional, causing timesToRun to launch STRAIGHT into the stratosphere
+            - reason for this is that costs are based now on FRACTIONAL TIME, so maxTimesToRun as a multiplier is absolute bananas
+            - our DEFAULT timesToRun is just hoursElapsed; since recipes are 'per hour,' 1 hour is 1 time to run and multiplies perfectly, 0.5 hours is 0.5 times to run, etc.
+            - MAX times to run needs to be reset if we don't have enough supplies for running that particular recipe, buuuuuut
+        
+                make sure costs are properly calculated and then directly ratchet down timesToRun IF we need to
+                so timesToRun = number of hours passed OR number of times we can run it based on hourly cost, whichever is less
+                SET A NEW CHECKER VAR within the loop and adjust timesToRun there
+        */
+
         townshipRef.refining.forEach(refiningObject => {
             // changed to remove Math.floor() on times to run, so we avoid situations where checking on refining before an hour effectively resets refining progress
+            // the numbers are completely and insanely borked even within the loop below, looong before we actually change the inventory, I think/hope
+            let timesToRun = hoursElapsed;
             
-            let maxTimesToRun = minutesElapsed / refiningObject.time;
-            let timesToRun = 0;
             let costs = {};
             Object.keys(refiningObject.from).forEach(reqMat => {
-                costs[reqMat] = refiningObject.from[reqMat] * maxTimesToRun * refiningObject.workers;
-                timesToRun = Math.floor(townshipRef.inventory[reqMat] / costs[reqMat]);
-                if (timesToRun > maxTimesToRun) timesToRun = maxTimesToRun;
+                
+                // console.log(`REFINING FROM: ${reqMat}, of which the township has ${townshipRef.inventory[reqMat]}`)
+                // multiply by timesToRun instead of hoursElapsed so we respect whatever the latest maxRunnableTimes adjustment may be, OR hoursElapsed otherwise
+                // this code now works, disregarding 'hourly'... we're just looking at, based on a given timeframe, can we afford that cost?
+                // and if we can wildly over-afford the cost of the given timeframe, cool, disregard and move on
+                costs[reqMat] = refiningObject.from[reqMat] * refiningObject.workers * timesToRun;
+                // console.log(`Projected costs for ${reqMat} is ${costs[reqMat]}`)
+                let maxRunnableTimes = townshipRef.inventory[reqMat] / costs[reqMat];
+                // console.log(`Based on our resources, we can run this material for ${maxRunnableTimes} pulses of this timeframe.`);
+                if (maxRunnableTimes < hoursElapsed) timesToRun = maxRunnableTimes;
+                // console.log(`For the material ${reqMat}, we have enough to run it for ${timesToRun}.`);
             });
-            console.log(`Looks like we're looping through ${timesToRun} out of a initial max of ${maxTimesToRun} times while refining ${refiningObject.name}!`);
+
+            // HERE: set timesToRun to maxTimesInventoryAllows
+
+            // ok, changed it to scale DOWN from an expected max run
+            
             // so we SHOULD have a valid timesToRun at the end of this to... redouble our efforts, so to speak
             // basically we want to go through and decrement by timesToRun * cost for each inventory item and then increment by into via the same amt
             Object.keys(refiningObject.from).forEach(reqMat => {
@@ -6524,6 +6582,9 @@ function calcTownIncome(townshipRef) {
         });
 
         if (jobsDone > 0) {
+            if (townshipRef.flux == null) townshipRef.flux = 0;
+            townshipRef.flux = townshipRef.flux + jobsDone * 5; // just +5 flux per upgrade and build job done for now for ease
+            console.log(`Oh! ${jobsDone} completed building projects means ${jobsDone * 5} flux for us. We should now have ${townshipRef.flux}.`);
             townshipRef.building = townshipRef.building.filter(buildObj => buildObj != null);
             calcTownship(townshipRef);
             // let managementData = fetchManagementData(townshipRef);
@@ -6539,7 +6600,7 @@ function calcTownIncome(townshipRef) {
     }
 
     townshipRef.lastTick = rightNow;
-    console.log(`La de da. Setting a new lastTick of ${townshipRef.lastTick}`)
+    // console.log(`La de da. Setting a new lastTick of ${townshipRef.lastTick}`)
 }
 
 function calcTileIncome(tileString) {
